@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Literal
 
-from .adapters import from_kerdoios_observation, from_z0int_receipt
+from .adapters import from_flow_prediction, from_flow_prepare, from_kerdoios_observation, from_z0int_receipt
 from .aggregate import tokens_per_verified_task
 from .models import TokenomicsEvent
 
@@ -89,13 +89,23 @@ def _actual_tokens(ev: TokenomicsEvent) -> int:
 def classify_savings(ev: TokenomicsEvent) -> tuple[SavingsTier, int, int, int]:
     """Return (tier, baseline, actual, avoided) for one event.
 
-    MEASURED: paired baseline + measured frontier.
+    MEASURED: paired baseline + measured frontier, OR consume that replaced frontier tokens.
     ESTIMATED: estimate field present (and not already counted as measured).
     UNKNOWN: no trustworthy baseline/estimate.
+
+    Prepare create/expire/invalidate never contribute token avoidance.
     """
+    econ = ev.economics
+    if econ and econ.prepare_outcome:
+        outcome = econ.prepare_outcome
+        if outcome != "prepare_consumed":
+            return "unknown", 0, 0, 0
+        if econ.measured_tokens_avoided and econ.measured_tokens_avoided > 0:
+            return "measured", int(econ.measured_tokens_avoided), 0, int(econ.measured_tokens_avoided)
+        return "unknown", 0, 0, 0
+
     base = _baseline_tokens(ev)
     measured = _measured_frontier(ev)
-    econ = ev.economics
     est = int(econ.estimated_tokens_avoided) if econ and econ.estimated_tokens_avoided is not None else None
     meas_av = int(econ.measured_tokens_avoided) if econ and econ.measured_tokens_avoided is not None else None
 
@@ -106,10 +116,8 @@ def classify_savings(ev: TokenomicsEvent) -> tuple[SavingsTier, int, int, int]:
         return "measured", base, measured, avoided
 
     if est is not None and est > 0:
-        # estimated path: baseline may still be known
-        b = base if base is not None else est  # weak baseline proxy only for display totals
         actual = _actual_tokens(ev)
-        return "estimated", b if base is not None else 0, actual, est
+        return "estimated", base if base is not None else 0, actual, est
 
     if base is not None:
         actual = _actual_tokens(ev)
@@ -201,7 +209,36 @@ def _coerce_event(raw: dict[str, Any]) -> TokenomicsEvent | None:
             return TokenomicsEvent.from_dict(raw)
         except Exception:
             return None
-    if schema.startswith("z0int.decision_receipt") or "capability_id" in raw or "baseline_input_tokens" in raw:
+    # Flow prepare lifecycle BEFORE z0int catch-all (rows also carry capability_id).
+    if schema.startswith("flow.prepare") or raw.get("prepare_outcome"):
+        try:
+            return from_flow_prepare(raw)
+        except Exception:
+            return None
+    # flow_prediction.v1 with prepare block
+    if schema == "flow_prediction.v1":
+        try:
+            return from_flow_prediction(raw)
+        except Exception:
+            return None
+    if schema.startswith("z0int.decision_receipt") or (
+        ("capability_id" in raw or "baseline_input_tokens" in raw)
+        and schema.startswith("z0int")
+    ) or (
+        schema == ""
+        and ("baseline_input_tokens" in raw or "estimated_frontier_tokens_avoided" in raw)
+    ):
+        try:
+            return from_z0int_receipt(raw)
+        except Exception:
+            return None
+    # Legacy bare decision rows without schema
+    if "capability_id" in raw and (
+        "baseline_input_tokens" in raw
+        or "estimated_frontier_tokens_avoided" in raw
+        or "measured_frontier_tokens" in raw
+        or raw.get("schema", "").startswith("z0int")
+    ):
         try:
             return from_z0int_receipt(raw)
         except Exception:
@@ -214,7 +251,7 @@ def _coerce_event(raw: dict[str, Any]) -> TokenomicsEvent | None:
         except Exception:
             return None
     # Generic tokenomics-ish
-    if "trace_id" in raw and ("usage" in raw or "economics" in raw):
+    if "trace_id" in raw and ("usage" in raw or "economics" in raw or raw.get("kind") == "prepare"):
         try:
             return TokenomicsEvent.from_dict(raw)
         except Exception:
@@ -227,8 +264,10 @@ def default_sources(*, root: Path | None = None) -> list[Path]:
     home = root or z0int_home()
     paths = [
         home / "receipts" / "decisions.jsonl",
+        home / "receipts" / "flow_predictions.jsonl",
         home / "stream" / "bridge.jsonl",
         home / "tokenomics" / "events.jsonl",
+        home / "tokenomics" / "prepare_events.jsonl",
         Path(os.environ.get("TOKENOMICS_JSONL", "")).expanduser() if os.environ.get("TOKENOMICS_JSONL") else None,
     ]
     return [p for p in paths if p is not None]
@@ -375,6 +414,114 @@ def build_savings_report(
         for d in days
     ]
 
+
+    # --- Prepare/speculation funnel (non-LLM economics) ---
+    # Prefer dedicated flow.prepare.v1 lifecycle rows; fall back to lifted
+    # flow_prediction prepare blocks. Dedupe by prediction_id with terminal
+    # outcome winning over create so receipts + events never double-count.
+    prep_events = [
+        e for e in rows if e.kind == "prepare" or (e.economics and e.economics.prepare_outcome)
+    ]
+    _OUTCOME_RANK = {
+        "prepare_created": 1,
+        "prepare_expired": 2,
+        "prepare_invalidated": 2,
+        "prepare_consumed": 3,
+    }
+    by_pred: dict[str, object] = {}
+    unkeyed: list = []
+    for ev in prep_events:
+        eco = ev.economics
+        if not eco or not eco.prepare_outcome:
+            continue
+        pid = str((ev.extra or {}).get("prediction_id") or "")
+        legacy = str((ev.extra or {}).get("legacy_schema") or "")
+        # Prefer dedicated prepare_events over flow_prediction lifts when both exist.
+        weight = 2 if legacy.startswith("flow.prepare") else 1
+        if not pid:
+            unkeyed.append(ev)
+            continue
+        prev = by_pred.get(pid)
+        if prev is None:
+            by_pred[pid] = (weight, _OUTCOME_RANK.get(eco.prepare_outcome, 0), ev)
+        else:
+            pw, pr, _ = prev
+            rank = _OUTCOME_RANK.get(eco.prepare_outcome, 0)
+            if weight > pw or (weight == pw and rank >= pr):
+                by_pred[pid] = (weight, rank, ev)
+    chosen = [trip[2] for trip in by_pred.values()] + unkeyed
+
+    created = consumed = expired = invalidated = 0
+    latency_hidden_ms = 0.0
+    by_provider_prep: Counter[str] = Counter()
+    frontier_replaced_sum = 0
+    # Speculation cost: sum create costs once per prediction (from create event if present).
+    create_cost_by_pred: dict[str, float] = {}
+    create_bytes_by_pred: dict[str, int] = {}
+    for ev in prep_events:
+        eco = ev.economics
+        if not eco or eco.prepare_outcome != "prepare_created":
+            continue
+        pid = str((ev.extra or {}).get("prediction_id") or ev.event_id or id(ev))
+        if eco.prepare_cost_ms is not None:
+            create_cost_by_pred[pid] = float(eco.prepare_cost_ms)
+        if eco.prepare_bytes is not None:
+            create_bytes_by_pred[pid] = int(eco.prepare_bytes)
+
+    for ev in chosen:
+        eco = ev.economics
+        if not eco or not eco.prepare_outcome:
+            continue
+        oc = eco.prepare_outcome
+        if oc == "prepare_created":
+            created += 1
+        elif oc == "prepare_consumed":
+            consumed += 1
+            # A consume implies a prior create for hit-rate denominator.
+            created += 1
+            if eco.latency_hidden_ms:
+                latency_hidden_ms += float(eco.latency_hidden_ms)
+            if eco.frontier_tokens_replaced:
+                frontier_replaced_sum += int(eco.frontier_tokens_replaced)
+        elif oc == "prepare_expired":
+            expired += 1
+            created += 1
+        elif oc == "prepare_invalidated":
+            invalidated += 1
+            created += 1
+        if eco.prepare_provider:
+            by_provider_prep[str(eco.prepare_provider)] += 1
+
+    speculation_cost_ms = sum(create_cost_by_pred.values())
+    prepare_bytes_sum = sum(create_bytes_by_pred.values())
+    # If we only saw terminals without creates, still count chosen creates above.
+    # Hit rate uses created as denominator after terminal backfill.
+
+    hit_rate = (consumed / created) if created > 0 else None
+    pred_ids = set(by_pred.keys())
+    prepare_funnel = {
+        "predictions": len(pred_ids) if pred_ids else None,
+        "prepared": created,
+        "consumed": consumed,
+        "expired": expired,
+        "invalidated": invalidated,
+        "changed_behavior": None,
+        "verified_useful": None,
+        "prepare_hit_rate": round(hit_rate, 4) if hit_rate is not None else None,
+        "latency_hidden_ms": round(latency_hidden_ms, 3),
+        "speculation_overhead_ms": round(speculation_cost_ms, 3),
+        "prepare_bytes_sum": int(prepare_bytes_sum),
+        "frontier_tokens_replaced_on_consume": int(frontier_replaced_sum),
+        "by_provider": [
+            {"provider": k, "events": int(v)} for k, v in by_provider_prep.most_common()
+        ],
+        "rule": (
+            "Do not credit prepare_created as savings. "
+            "latency_hidden only on prepare_consumed. "
+            "Token avoidance only when frontier_tokens_replaced > 0 on consume."
+        ),
+    }
+
     return {
         "schema": REPORT_SCHEMA,
         "range": range_spec,
@@ -426,7 +573,9 @@ def build_savings_report(
             "events_with_baseline": sum(1 for e in rows if _baseline_tokens(e) is not None),
             "events_with_measured_frontier": sum(1 for e in rows if _measured_frontier(e) is not None),
             "events_with_estimate_only": n_estimated,
+            "prepare_events": len(prep_events),
         },
+        "prepare_funnel": prepare_funnel,
         "economics": {
             # Costs optional — only when events carry prices/cost_usd.
             "observed_cost_usd": _sum_cost(rows, baseline=False),
@@ -494,6 +643,23 @@ def format_savings_text(report: dict[str, Any]) -> str:
             f"{row['harness']:<16}{_fmt_tok(row['tokens_avoided']):>10}"
             f"{_fmt_tok(row['tokens_actual']):>10}{row['verified_tasks']:>10}"
         )
+    pf = report.get("prepare_funnel") or {}
+    if pf:
+        lines += [
+            "",
+            "Prepare / speculation funnel",
+            "────────────────────────────────────────",
+            f"Predictions                  {pf.get('predictions') if pf.get('predictions') is not None else '—'}",
+            f"Prepared                     {pf.get('prepared', 0)}",
+            f"Consumed                     {pf.get('consumed', 0)}",
+            f"Expired                      {pf.get('expired', 0)}",
+            f"Invalidated                  {pf.get('invalidated', 0)}",
+            f"Prepare hit rate             {_fmt_pct(pf.get('prepare_hit_rate'))}",
+            f"Latency hidden               {_fmt_ms(pf.get('latency_hidden_ms'))}",
+            f"Speculation overhead         {_fmt_ms(pf.get('speculation_overhead_ms'))}",
+            f"Frontier tokens replaced*    {_fmt_tok(pf.get('frontier_tokens_replaced_on_consume'))}",
+            "  * only on consume that replaced a model call — create earns 0",
+        ]
     red = tot.get("reduction_vs_baseline")
     lines += [
         "",
@@ -537,6 +703,20 @@ def _fmt_pct(v: Any) -> str:
         return f"{float(v)*100:.1f}%"
     except (TypeError, ValueError):
         return "—"
+
+
+def _fmt_ms(v: Any) -> str:
+    if v is None:
+        return "—"
+    try:
+        ms = float(v)
+    except (TypeError, ValueError):
+        return "—"
+    if ms >= 60_000:
+        return f"{ms/60000:.1f} min"
+    if ms >= 1000:
+        return f"{ms/1000:.2f} s"
+    return f"{ms:.1f} ms"
 
 
 def _fmt_money(v: Any) -> str:
