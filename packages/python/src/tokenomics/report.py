@@ -20,7 +20,7 @@ from .adapters import (
     from_omp_session_aggregate,
     from_z0int_receipt,
 )
-from .aggregate import tokens_per_verified_task
+from .aggregate import summarize_traces, tokens_per_verified_task
 from .models import TokenomicsEvent
 
 REPORT_SCHEMA = "tokenomics.report.v1"
@@ -50,6 +50,26 @@ def parse_range(spec: str, *, now: float | None = None) -> tuple[float, float]:
     raise ValueError(f"unsupported range {spec!r}; use today|7d|30d|24h|all")
 
 
+def _usage_attribution(ev: TokenomicsEvent) -> str:
+    if ev.usage is None:
+        return "none"
+    return str(ev.usage.attribution or "unknown")
+
+
+def _is_aggregate_usage(ev: TokenomicsEvent) -> bool:
+    return ev.usage is not None and ev.usage.attribution == "aggregate"
+
+
+def _is_incremental_usage(ev: TokenomicsEvent) -> bool:
+    return ev.usage is not None and ev.usage.attribution == "incremental"
+
+
+def _event_usage_tokens(ev: TokenomicsEvent) -> int:
+    if ev.usage is None:
+        return 0
+    return int(ev.usage.total() or 0)
+
+
 def _baseline_tokens(ev: TokenomicsEvent) -> int | None:
     extra = ev.extra or {}
     if extra.get("baseline_total_tokens") is not None:
@@ -61,6 +81,8 @@ def _baseline_tokens(ev: TokenomicsEvent) -> int | None:
 
 
 def _measured_frontier(ev: TokenomicsEvent) -> int | None:
+    if _is_aggregate_usage(ev):
+        return None
     extra = ev.extra or {}
     if extra.get("measured_frontier_tokens") is not None:
         try:
@@ -72,7 +94,6 @@ def _measured_frontier(ev: TokenomicsEvent) -> int | None:
             return int(ev.usage.reported_total_tokens)
         except (TypeError, ValueError):
             return None
-    # actual frontier usage if provider-attributed
     if ev.usage and ev.usage.source == "provider":
         tot = ev.usage.total()
         if tot:
@@ -80,20 +101,30 @@ def _measured_frontier(ev: TokenomicsEvent) -> int | None:
     return None
 
 
+
+
 def _actual_tokens(ev: TokenomicsEvent) -> int:
-    """Tokens actually spent on frontier (0 if fully offloaded/local)."""
+    """Tokens actually spent on frontier (0 if fully offloaded/local).
+
+    Aggregate attribution rows are reconciliation evidence only — never additive.
+    """
+    if _is_aggregate_usage(ev):
+        return 0
     m = _measured_frontier(ev)
     if m is not None:
         return max(0, m)
     if ev.usage and ev.usage.source == "provider":
         return int(ev.usage.total() or 0)
-    # local/router offload with no measured spend
     route = str((ev.extra or {}).get("route") or "")
     if route in {"local", "local_model", "routine", "specialist", "log_only"}:
         return 0
     if ev.usage:
-        return int(ev.usage.total() or 0)
+        attr = _usage_attribution(ev)
+        if attr in {"incremental", "unknown"}:
+            return int(ev.usage.total() or 0)
+        return 0
     return 0
+
 
 
 def classify_savings(ev: TokenomicsEvent) -> tuple[SavingsTier, int, int, int]:
@@ -104,7 +135,10 @@ def classify_savings(ev: TokenomicsEvent) -> tuple[SavingsTier, int, int, int]:
     UNKNOWN: no trustworthy baseline/estimate.
 
     Prepare create/expire/invalidate never contribute token avoidance.
+    Aggregate attribution usage is reconciliation-only (summarize_trace semantics).
     """
+    if _is_aggregate_usage(ev):
+        return "unknown", 0, 0, 0
     econ = ev.economics
     if econ and econ.prepare_outcome:
         outcome = econ.prepare_outcome
@@ -296,15 +330,109 @@ def _coerce_event(raw: dict[str, Any]) -> TokenomicsEvent | None:
 def default_sources(*, root: Path | None = None) -> list[Path]:
     """Discover local measurement streams without requiring a UI."""
     home = root or z0int_home()
-    paths = [
+    paths: list[Path | None] = [
         home / "receipts" / "decisions.jsonl",
         home / "receipts" / "flow_predictions.jsonl",
         home / "stream" / "bridge.jsonl",
         home / "tokenomics" / "events.jsonl",
         home / "tokenomics" / "prepare_events.jsonl",
-        Path(os.environ.get("TOKENOMICS_JSONL", "")).expanduser() if os.environ.get("TOKENOMICS_JSONL") else None,
     ]
+    omp_home = Path(os.environ.get("OMP_HOME", Path.home() / ".omp")).expanduser()
+    omp_tokenomics = omp_home / "tokenomics"
+    if omp_tokenomics.is_dir():
+        paths.extend(sorted(omp_tokenomics.glob("events-*.jsonl")))
+    env_jsonl = os.environ.get("TOKENOMICS_JSONL")
+    if env_jsonl:
+        paths.append(Path(env_jsonl).expanduser())
     return [p for p in paths if p is not None]
+
+
+def _build_reconciliation(
+    rows: list[TokenomicsEvent],
+    *,
+    baseline_sum: int,
+    actual_sum: int,
+    measured_avoided: int,
+    estimated_avoided: int,
+    unknown_baseline_tokens: int,
+) -> dict[str, Any]:
+    """Trace-level reconciliation using summarize_trace attribution semantics."""
+    usage_rows = [e for e in rows if e.usage is not None]
+    trace_summaries = summarize_traces(usage_rows) if usage_rows else []
+
+    incremental_tokens = sum(s.total_tokens for s in trace_summaries)
+    aggregate_reported = sum(
+        int(s.aggregate_reported_tokens or 0)
+        for s in trace_summaries
+        if s.aggregate_reported_tokens is not None
+    )
+    reconciliation_deltas = [
+        int(s.reconciliation_delta) for s in trace_summaries if s.reconciliation_delta is not None
+    ]
+    reconciliation_delta_tokens = sum(reconciliation_deltas) if reconciliation_deltas else None
+
+    gross_delta = int(baseline_sum - actual_sum)
+    explained = int(measured_avoided + estimated_avoided)
+    unattributed_delta = gross_delta - explained
+
+    has_aggregate = any(_is_aggregate_usage(e) for e in rows)
+    unknown_attr_tokens = sum(
+        _event_usage_tokens(e)
+        for e in rows
+        if e.usage is not None and _usage_attribution(e) == "unknown" and not _is_aggregate_usage(e)
+    )
+
+    if not has_aggregate:
+        status = "no_aggregate_receipts"
+    elif reconciliation_delta_tokens is None:
+        status = "unknown"
+    elif abs(reconciliation_delta_tokens) <= max(1, int(incremental_tokens * 0.001)):
+        status = "reconciled"
+    else:
+        status = "delta_observed"
+
+    return {
+        "baseline_tokens": int(baseline_sum),
+        "actual_tokens": int(actual_sum),
+        "gross_delta_tokens": gross_delta,
+        "measured_avoided_tokens": int(measured_avoided),
+        "estimated_avoided_tokens": int(estimated_avoided),
+        "unattributed_delta_tokens": unattributed_delta,
+        "aggregate_reported_tokens": int(aggregate_reported) if has_aggregate else None,
+        "incremental_tokens": int(incremental_tokens),
+        "reconciliation_delta_tokens": reconciliation_delta_tokens,
+        "unknown_attribution_tokens": int(unknown_attr_tokens),
+        "unknown_or_no_baseline_tokens": int(unknown_baseline_tokens),
+        "status": status,
+        "role_breakdown": {
+            "root_tokens": sum(s.root_tokens for s in trace_summaries),
+            "rlm_worker_tokens": sum(s.worker_tokens for s in trace_summaries),
+            "subagent_tokens": sum(s.subagent_tokens for s in trace_summaries),
+            "verifier_tokens": sum(s.verifier_tokens for s in trace_summaries),
+        },
+        "n_traces_with_usage": len(trace_summaries),
+    }
+
+
+def _token_coverage(
+    *,
+    measured_avoided: int,
+    estimated_avoided: int,
+    unknown_tokens: int,
+    actual_sum: int,
+) -> dict[str, Any]:
+    """Token-level tier coverage — measured and estimated remain separate."""
+    frontier_mass = actual_sum + measured_avoided + estimated_avoided + unknown_tokens
+
+    def _share(n: int) -> float | None:
+        return round(n / frontier_mass, 4) if frontier_mass > 0 else None
+
+    return {
+        "measured": {"tokens": int(measured_avoided), "share": _share(measured_avoided)},
+        "estimated": {"tokens": int(estimated_avoided), "share": _share(estimated_avoided)},
+        "unknown_or_unattributed": {"tokens": int(unknown_tokens), "share": _share(unknown_tokens)},
+        "actual_frontier": {"tokens": int(actual_sum), "share": _share(actual_sum)},
+    }
 
 
 def build_savings_report(
@@ -630,6 +758,21 @@ def build_savings_report(
         ),
     }
 
+    reconciliation = _build_reconciliation(
+        rows,
+        baseline_sum=int(baseline_sum),
+        actual_sum=int(actual_sum),
+        measured_avoided=int(measured_avoided),
+        estimated_avoided=int(estimated_avoided),
+        unknown_baseline_tokens=int(unknown_baseline_tokens),
+    )
+    token_coverage = _token_coverage(
+        measured_avoided=int(measured_avoided),
+        estimated_avoided=int(estimated_avoided),
+        unknown_tokens=int(unknown_baseline_tokens + reconciliation["unknown_attribution_tokens"]),
+        actual_sum=int(actual_sum),
+    )
+
     return {
         "schema": REPORT_SCHEMA,
         "range": range_spec,
@@ -682,8 +825,15 @@ def build_savings_report(
             "events_with_measured_frontier": sum(1 for e in rows if _measured_frontier(e) is not None),
             "events_with_estimate_only": n_estimated,
             "prepare_events": len(prep_events),
+            "incremental_usage_events": sum(1 for e in rows if _is_incremental_usage(e)),
+            "aggregate_usage_events": sum(1 for e in rows if _is_aggregate_usage(e)),
+            "unknown_attribution_events": sum(
+                1 for e in rows if e.usage is not None and _usage_attribution(e) == "unknown"
+            ),
         },
         "prepare_funnel": prepare_funnel,
+        "reconciliation": reconciliation,
+        "token_coverage": token_coverage,
         "economics": {
             # Costs optional — only when events carry prices/cost_usd.
             "observed_cost_usd": _sum_cost(rows, baseline=False),
@@ -697,6 +847,8 @@ def _sum_cost(rows: list[TokenomicsEvent], *, baseline: bool) -> float | None:
     total = 0.0
     any_c = False
     for ev in rows:
+        if _is_aggregate_usage(ev):
+            continue
         if not ev.economics:
             continue
         v = ev.economics.baseline_cost_usd if baseline else ev.economics.cost_usd
@@ -772,6 +924,31 @@ def format_savings_text(report: dict[str, Any]) -> str:
             f"Frontier tokens replaced*    {_fmt_tok(pf.get('frontier_tokens_replaced_on_consume'))}",
             "  * only on consume that replaced a model call — create earns 0",
         ]
+    rec = report.get("reconciliation") or {}
+    if rec:
+        lines += [
+            "",
+            "Reconciliation",
+            "────────────────────────────────────────",
+            f"Incremental tokens           {_fmt_tok(rec.get('incremental_tokens'))}",
+            f"Aggregate reported           {_fmt_tok(rec.get('aggregate_reported_tokens'))}",
+            f"Reconciliation delta         {_fmt_tok(rec.get('reconciliation_delta_tokens'))}",
+            f"Gross delta (base−actual)    {_fmt_tok(rec.get('gross_delta_tokens'))}",
+            f"Unattributed delta           {_fmt_tok(rec.get('unattributed_delta_tokens'))}",
+            f"Status                       {rec.get('status', '—')}",
+        ]
+    cov = report.get("token_coverage") or {}
+    if cov:
+        lines += [
+            "",
+            "Token coverage (tier mass)",
+            "────────────────────────────────────────",
+        ]
+        for key in ("measured", "estimated", "unknown_or_unattributed", "actual_frontier"):
+            row = cov.get(key) or {}
+            share = row.get("share")
+            share_s = f"{float(share)*100:.1f}%" if share is not None else "—"
+            lines.append(f"{key:<28} {_fmt_tok(row.get('tokens')):>8}  ({share_s})")
     red = tot.get("reduction_vs_baseline")
     lines += [
         "",
