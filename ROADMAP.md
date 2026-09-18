@@ -24,3 +24,15 @@
 - add richer latency distributions if real traces need them;
 - add a Langfuse/Phoenix experiment adapter only if OTLP + custom attributes is insufficient;
 - propose stable `tokenomics.*` semantic conventions from observed integrations.
+
+## v0.2: savings report contract (T0)
+
+- `tokenomics.report.v1` aggregator with **measured / estimated / unknown** tiers (never collapsed);
+- CLI: `tokenomics savings --range today|7d|30d|all [--json]` and `tokenomics report`;
+- default sources: `~/.z0int/receipts` + tokenomics JSONL;
+- quality-adjusted metric: tokens / verified success.
+
+## After T0 (not in-core UI)
+
+- T1: AgentTrace native Tokenomics parser + Savings TUI/HTML;
+- T2: optional `tokenomics-web` consuming only `tokenomics.report.v1`.
