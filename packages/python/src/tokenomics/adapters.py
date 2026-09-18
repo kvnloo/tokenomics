@@ -55,9 +55,22 @@ def from_z0int_receipt(raw: dict[str, Any], *, harness: str = "z0int") -> Tokeno
     if raw.get("baseline_input_tokens") is not None or raw.get("baseline_output_tokens") is not None:
         baseline = int(raw.get("baseline_input_tokens") or 0) + int(raw.get("baseline_output_tokens") or 0)
     measured = raw.get("measured_frontier_tokens")
-    avoided = raw.get("actual_tokens_saved", raw.get("estimated_frontier_tokens_avoided"))
-    if avoided is None and baseline is not None and measured is not None:
-        avoided = max(0, baseline - int(measured))
+    measured_i = int(measured) if measured is not None else None
+    # Never collapse tiers: measured requires paired baseline+actual.
+    measured_avoided = None
+    if baseline is not None and measured_i is not None:
+        measured_avoided = max(0, int(baseline) - measured_i)
+    elif raw.get("actual_tokens_saved") is not None and measured_i is not None:
+        try:
+            measured_avoided = max(0, int(raw["actual_tokens_saved"]))
+        except (TypeError, ValueError):
+            measured_avoided = None
+    est_avoided = raw.get("estimated_frontier_tokens_avoided")
+    try:
+        est_avoided_i = int(est_avoided) if est_avoided is not None else None
+    except (TypeError, ValueError):
+        est_avoided_i = None
+    route = raw.get("route")
     return TokenomicsEvent(
         kind="decision",
         name=str(raw.get("capability_id") or raw.get("action_taken") or "z0int.decision"),
@@ -78,14 +91,21 @@ def from_z0int_receipt(raw: dict[str, Any], *, harness: str = "z0int") -> Tokeno
             source="provider" if measured is not None else "unknown",
         ),
         economics=Economics(
-            estimated_tokens_avoided=raw.get("estimated_frontier_tokens_avoided"),
-            measured_tokens_avoided=avoided,
+            estimated_tokens_avoided=est_avoided_i,
+            measured_tokens_avoided=measured_avoided,
         ),
         latency=Latency(duration_ms=raw.get("latency_ms")),
         experiment=Experiment(**exp_data) if exp_data else None,
         outcome=_outcome(raw.get("outcome")),
         ts=float(raw.get("ts") or raw.get("close_ts") or 0) or __import__("time").time(),
-        extra={"legacy_schema": raw.get("schema"), "baseline_total_tokens": baseline},
+        extra={
+            "legacy_schema": raw.get("schema"),
+            "baseline_total_tokens": baseline,
+            "measured_frontier_tokens": measured_i,
+            "route": route,
+            "action_taken": raw.get("action_taken"),
+            "execution": raw.get("execution"),
+        },
     )
 
 

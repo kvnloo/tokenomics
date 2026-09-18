@@ -1,6 +1,7 @@
 """Agent Tokenomics: neutral measurement contracts for LLM harnesses."""
 
 from .aggregate import TraceSummary, summarize_trace, summarize_traces, tokens_per_verified_task
+from .report import REPORT_SCHEMA, build_savings_report, classify_savings, format_savings_text, savings_report_from_sources
 from .adapters import from_kerdoios_observation, from_z0int_receipt
 from .experiment import treatment_hash
 from .ids import new_event_id, new_span_id, new_trace_id
@@ -34,7 +35,12 @@ __all__ = [
     "Recorder",
     "TokenUsage",
     "TokenomicsEvent",
+    "REPORT_SCHEMA",
     "TraceSummary",
+    "build_savings_report",
+    "classify_savings",
+    "format_savings_text",
+    "savings_report_from_sources",
     "from_kerdoios_observation",
     "from_z0int_receipt",
     "iter_jsonl",
