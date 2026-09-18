@@ -36,3 +36,13 @@
 
 - T1: AgentTrace native Tokenomics parser + Savings TUI/HTML;
 - T2: optional `tokenomics-web` consuming only `tokenomics.report.v1`.
+
+## v0.2.1: prepare / speculation economics
+
+- `kind=prepare` + economics fields: prepare_outcome, cost_ms, bytes, provider,
+  time_to_commit_ms, latency_hidden_ms, frontier_tokens_replaced
+- outcomes: prepare_created | prepare_consumed | prepare_expired | prepare_invalidated
+- report.prepare_funnel: hit rate, latency hidden, speculation overhead
+- **Rule:** create never earns token savings; latency_hidden only on consume;
+  token avoidance only when frontier_tokens_replaced > 0 on consume
+- Flow emits `~/.z0int/tokenomics/prepare_events.jsonl`
