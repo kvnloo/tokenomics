@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-tokenomics.dev/schema/event.v0.json",
+  "title": "Tokenomics Event v0",
+  "type": "object",
+  "required": ["schema", "kind", "name", "trace_id", "span_id", "event_id", "role", "status", "ts"],
+  "properties": {
+    "schema": {"const": "tokenomics.event.v0"},
+    "kind": {"enum": ["task", "decision", "llm", "tool", "retrieval", "context", "verification", "quota", "placement", "other"]},
+    "name": {"type": "string", "minLength": 1},
+    "trace_id": {"type": "string", "pattern": "^[0-9a-fA-F]{32}$"},
+    "span_id": {"type": "string", "pattern": "^(?!0{16}$)[0-9a-fA-F]{16}$"},
+    "event_id": {"type": "string", "minLength": 1},
+    "parent_span_id": {"type": "string", "pattern": "^(?!0{16}$)[0-9a-fA-F]{16}$"},
+    "session_id": {"type": "string"},
+    "task_id": {"type": "string"},
+    "capability_id": {"type": "string"},
+    "harness": {"type": "string"},
+    "service": {"type": "string"},
+    "role": {"enum": ["root", "rlm_worker", "subagent", "verifier", "router", "other"]},
+    "status": {"enum": ["ok", "error", "cancelled", "unknown"]},
+    "model": {"$ref": "#/$defs/model"},
+    "usage": {"$ref": "#/$defs/usage"},
+    "economics": {"$ref": "#/$defs/economics"},
+    "latency": {"$ref": "#/$defs/latency"},
+    "context": {"$ref": "#/$defs/context"},
+    "quota_before": {"$ref": "#/$defs/quota"},
+    "quota_after": {"$ref": "#/$defs/quota"},
+    "experiment": {"$ref": "https://agent-tokenomics.dev/schema/experiment.v0.json"},
+    "outcome": {"$ref": "https://agent-tokenomics.dev/schema/outcome.v0.json"},
+    "started_at": {"type": "number"},
+    "ended_at": {"type": "number"},
+    "ts": {"type": "number"},
+    "attributes": {"type": "object", "additionalProperties": {"type": ["string", "integer", "number", "boolean"]}},
+    "extra": {"type": "object", "additionalProperties": true}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "model": {
+      "type": "object",
+      "properties": {
+        "provider": {"type": "string"}, "name": {"type": "string"}, "role": {"type": "string"},
+        "origin_provider": {"type": "string"}, "revision": {"type": "string"}
+      }, "additionalProperties": false
+    },
+    "usage": {
+      "type": "object",
+      "properties": {
+        "input_tokens": {"type": "integer", "minimum": 0},
+        "output_tokens": {"type": "integer", "minimum": 0},
+        "cached_input_tokens": {"type": "integer", "minimum": 0},
+        "cache_write_input_tokens": {"type": "integer", "minimum": 0},
+        "reasoning_tokens": {"type": "integer", "minimum": 0},
+        "context_tokens": {"type": "integer", "minimum": 0},
+        "reported_total_tokens": {"type": "integer", "minimum": 0},
+        "attribution": {"enum": ["incremental", "aggregate", "unknown"]},
+        "source": {"enum": ["provider", "estimated", "derived", "unknown"]}
+      }, "additionalProperties": false
+    },
+    "economics": {
+      "type": "object",
+      "properties": {
+        "cost_usd": {"type": "number", "minimum": 0},
+        "baseline_cost_usd": {"type": "number", "minimum": 0},
+        "input_price_usd_per_million": {"type": "number", "minimum": 0},
+        "output_price_usd_per_million": {"type": "number", "minimum": 0},
+        "cache_read_price_usd_per_million": {"type": "number", "minimum": 0},
+        "cache_write_price_usd_per_million": {"type": "number", "minimum": 0},
+        "estimated_tokens_avoided": {"type": "integer"},
+        "measured_tokens_avoided": {"type": "integer"}
+      }, "additionalProperties": false
+    },
+    "latency": {
+      "type": "object",
+      "properties": {
+        "duration_ms": {"type": "number", "minimum": 0},
+        "ttft_ms": {"type": "number", "minimum": 0},
+        "queue_ms": {"type": "number", "minimum": 0}
+      }, "additionalProperties": false
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "policy": {"type": "string"},
+        "spilled_bytes": {"type": "integer", "minimum": 0},
+        "granted_bytes": {"type": "integer", "minimum": 0},
+        "reintroduced_bytes": {"type": "integer", "minimum": 0},
+        "spill_count": {"type": "integer", "minimum": 0},
+        "retrieval_calls": {"type": "integer", "minimum": 0},
+        "worker_calls_avoided": {"type": "integer", "minimum": 0},
+        "compaction_count": {"type": "integer", "minimum": 0},
+        "citation_count": {"type": "integer", "minimum": 0},
+        "missed_evidence_count": {"type": "integer", "minimum": 0},
+        "unsupported_claim_count": {"type": "integer", "minimum": 0}
+      }, "additionalProperties": false
+    },
+    "quota": {
+      "type": "object",
+      "properties": {
+        "remaining": {"type": "number"},
+        "reset_seconds": {"type": "number", "minimum": 0},
+        "remaining_credits": {"type": "number"},
+        "source": {"type": "string"}
+      }, "additionalProperties": false
+    }
+  }
+}

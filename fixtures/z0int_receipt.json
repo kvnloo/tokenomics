@@ -1,0 +1,23 @@
+{
+  "schema": "z0int.decision_receipt.v1",
+  "trace_id": "0123456789abcdef0123456789abcdef",
+  "session_id": "omp-session-1",
+  "capability_id": "coding.delegate",
+  "provider": "openai",
+  "model": "gpt-example",
+  "input_tokens": 1000,
+  "output_tokens": 200,
+  "cached_input_tokens": 300,
+  "baseline_input_tokens": 2000,
+  "baseline_output_tokens": 400,
+  "measured_frontier_tokens": 1200,
+  "latency_ms": 500,
+  "experiment_id": "rlm-a-c",
+  "arm_id": "search-grants",
+  "outcome": {
+    "execution_completed": true,
+    "verified_success": true,
+    "verification_source": "tests",
+    "source": "manual"
+  }
+}

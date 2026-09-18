@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-tokenomics.dev/schema/experiment.v0.json",
+  "title": "Tokenomics Experiment v0",
+  "type": "object",
+  "properties": {
+    "experiment_id": {"type": "string"},
+    "pair_id": {"type": "string"},
+    "task_snapshot_id": {"type": "string"},
+    "arm_id": {"type": "string"},
+    "treatment_hash": {"type": "string"},
+    "selection_policy": {"type": "string"},
+    "assignment_probability": {"type": "number", "minimum": 0, "maximum": 1},
+    "reference_requested": {"type": "boolean"},
+    "reason_for_reference": {"type": "string"},
+    "replay_grade": {"type": "string"},
+    "verifier_class": {"type": "string"}
+  },
+  "additionalProperties": false
+}

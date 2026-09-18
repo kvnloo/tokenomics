@@ -1,0 +1,12 @@
+__pycache__/
+.pytest_cache/
+*.py[cod]
+.venv/
+node_modules/
+dist/
+coverage/
+*.egg-info/
+.DS_Store
+.env
+*.jsonl
+!fixtures/*.jsonl

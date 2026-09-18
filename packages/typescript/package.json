@@ -1,0 +1,35 @@
+{
+  "name": "@agent-tokenomics/core",
+  "version": "0.1.0",
+  "description": "Vendor-neutral measurement contracts for LLMs, agents, harnesses, latency, cost, context and verified outcomes",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
+  },
+  "files": [
+    "dist/src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test dist/test/*.test.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.0"
+  },
+  "peerDependencies": {
+    "@opentelemetry/api": ">=1.9.0 <2"
+  },
+  "peerDependenciesMeta": {
+    "@opentelemetry/api": {
+      "optional": true
+    }
+  }
+}

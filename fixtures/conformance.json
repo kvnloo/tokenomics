@@ -1,0 +1,12 @@
+{
+  "treatment": {
+    "model_version": "provider/model@1",
+    "reasoning_effort": "high",
+    "system_prompt_hash": "abc",
+    "skills_hash": null,
+    "context_policy": "rlm-search-grants",
+    "tool_schema_hash": "def",
+    "temperature": 0
+  },
+  "expected_treatment_hash": "9977437ebc20cfaa"
+}

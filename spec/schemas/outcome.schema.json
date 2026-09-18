@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-tokenomics.dev/schema/outcome.v0.json",
+  "title": "Tokenomics Outcome v0",
+  "type": "object",
+  "properties": {
+    "execution_completed": {"type": "boolean"},
+    "verified_success": {"type": "boolean"},
+    "verified": {"type": "boolean"},
+    "success": {"type": "boolean"},
+    "tool_ok": {"type": "boolean"},
+    "test_pass": {"type": "boolean"},
+    "task_done": {"type": "boolean"},
+    "user_correction": {"type": "boolean"},
+    "reverted": {"type": "boolean"},
+    "verifier_ok": {"type": "boolean"},
+    "ci_failed": {"type": "boolean"},
+    "pr_merged": {"type": "boolean"},
+    "retries": {"type": "integer", "minimum": 0},
+    "note": {"type": "string"},
+    "source": {"type": "string"},
+    "verification_source": {"type": "string"},
+    "tier": {"enum": ["gold", "negative", "execution", "soft", "unknown"]}
+  },
+  "additionalProperties": false
+}

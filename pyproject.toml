@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-tokenomics"
+version = "0.1.0"
+description = "Vendor-neutral measurement contracts for LLMs, agents, harnesses, latency, cost, context and verified outcomes"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+otel = [
+  "opentelemetry-api>=1.42,<2",
+  "opentelemetry-sdk>=1.42,<2",
+  "opentelemetry-exporter-otlp-proto-http>=1.42,<2",
+]
+test = ["pytest>=8,<10", "jsonschema>=4,<5"]
+all = [
+  "opentelemetry-api>=1.42,<2",
+  "opentelemetry-sdk>=1.42,<2",
+  "opentelemetry-exporter-otlp-proto-http>=1.42,<2",
+  "pytest>=8,<10",
+  "jsonschema>=4,<5",
+]
+
+[project.scripts]
+tokenomics = "tokenomics.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "packages/python/src"}
+
+[tool.setuptools.packages.find]
+where = ["packages/python/src"]
+
+[tool.pytest.ini_options]
+testpaths = ["packages/python/tests"]
+addopts = "-q"

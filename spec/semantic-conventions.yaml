@@ -1,0 +1,62 @@
+# tokenomics semantic conventions v0
+# These extend OpenTelemetry GenAI conventions; they do not replace gen_ai.*.
+groups:
+  - id: registry.tokenomics
+    type: attribute_group
+    brief: Verified economics and context-management attributes for agent harnesses.
+    stability: development
+    attributes:
+      - id: tokenomics.event.kind
+        type: string
+        brief: Logical event kind (llm, tool, retrieval, verification, etc.).
+      - id: tokenomics.execution.role
+        type: string
+        brief: Root, RLM worker, subagent, verifier, router, or other execution role.
+      - id: tokenomics.capability.id
+        type: string
+        brief: Portable capability id such as coding.delegate or retrieval.search.
+      - id: tokenomics.outcome.tier
+        type: string
+        brief: gold, negative, execution, soft, or unknown. Turn completion alone is not gold.
+      - id: tokenomics.outcome.verification_source
+        type: string
+        brief: Independent source that verified task quality.
+      - id: tokenomics.cost.usd
+        type: double
+        brief: Actual or provider-reported USD cost for this operation when known.
+      - id: tokenomics.tokens.avoided.measured
+        type: int
+        brief: Measured token delta versus a declared baseline treatment.
+      - id: tokenomics.context.policy
+        type: string
+        brief: Context policy/treatment active for this operation.
+      - id: tokenomics.context.spilled_bytes
+        type: int
+        brief: Evidence bytes externalized from the root context.
+      - id: tokenomics.context.granted_bytes
+        type: int
+        brief: Evidence bytes explicitly granted to a worker/model operation.
+      - id: tokenomics.context.reintroduced_bytes
+        type: int
+        brief: Evidence bytes reintroduced into model-visible context.
+      - id: tokenomics.context.missed_evidence_count
+        type: int
+        brief: Required evidence known to exist but not surfaced by retrieval.
+      - id: tokenomics.context.unsupported_claim_count
+        type: int
+        brief: Evidence-dependent claims lacking supporting retrieved evidence.
+      - id: tokenomics.quota.before.remaining
+        type: double
+        brief: Provider quota remaining before an operation when known.
+      - id: tokenomics.quota.after.remaining
+        type: double
+        brief: Provider quota remaining after an operation when known.
+      - id: tokenomics.experiment.experiment_id
+        type: string
+        brief: Experiment identifier.
+      - id: tokenomics.experiment.arm_id
+        type: string
+        brief: Experimental arm identifier.
+      - id: tokenomics.experiment.treatment_hash
+        type: string
+        brief: Stable fingerprint for model/prompt/context/tool treatment.

@@ -1,0 +1,9 @@
+{
+  "name": "agent-tokenomics-monorepo",
+  "private": true,
+  "workspaces": ["packages/typescript"],
+  "scripts": {
+    "build:ts": "npm --workspace @agent-tokenomics/core run build",
+    "test:ts": "npm --workspace @agent-tokenomics/core test"
+  }
+}

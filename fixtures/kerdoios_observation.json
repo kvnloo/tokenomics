@@ -1,0 +1,18 @@
+{
+  "trace_id": "fedcba9876543210fedcba9876543210",
+  "session_id": "hermes-1",
+  "provider": "cerebras",
+  "origin_provider": "cerebras",
+  "model": "qwen-example",
+  "task_type": "coding",
+  "capability_id": "coding.delegate",
+  "completed": true,
+  "actual_cost": 0.002,
+  "input_tokens": 800,
+  "output_tokens": 150,
+  "cached_input_tokens": 0,
+  "latency_ms": 190,
+  "quota_before": 60000,
+  "quota_after": 59050,
+  "remaining_source": "x-ratelimit-remaining-tokens"
+}
