@@ -163,6 +163,10 @@ def from_kerdoios_observation(raw: dict[str, Any], *, harness: str = "kerdoios")
             }.items()
             if v is not None
         },
+        extra={
+            "allocation_id": raw.get("allocation_id"),
+            "placement_only": True,
+        },
     )
 
 
@@ -408,3 +412,122 @@ def from_bespoke_curation(raw: dict[str, Any], *, harness: str = "bespoke") -> T
             "original_event_ref": raw.get("original_event_ref"),
         },
     )
+
+def _usage_from_raw(raw: dict[str, Any]) -> dict[str, Any]:
+    usage = raw.get("usage") if isinstance(raw.get("usage"), dict) else raw
+    return usage if isinstance(usage, dict) else {}
+
+
+def from_provider_usage(
+    raw: dict[str, Any],
+    *,
+    harness: str,
+    role: str = "root",
+    attribution: str = "incremental",
+) -> TokenomicsEvent:
+    """Map canonical provider usage (OMP/Hermes/RLM worker) to tokenomics.event.v0."""
+    usage = _usage_from_raw(raw)
+    inp = usage.get("input_tokens", usage.get("prompt_tokens"))
+    out = usage.get("output_tokens", usage.get("completion_tokens"))
+    cached = usage.get("cached_input_tokens", usage.get("cache_read_tokens"))
+    cache_write = usage.get("cache_write_input_tokens", usage.get("cache_write_tokens"))
+    reasoning = usage.get("reasoning_tokens", usage.get("reasoning_output_tokens"))
+    reported = usage.get("total_tokens", usage.get("reported_total_tokens"))
+    cost = raw.get("cost_usd", raw.get("estimated_cost_usd"))
+    try:
+        cost_f = float(cost) if cost is not None else None
+    except (TypeError, ValueError):
+        cost_f = None
+    return TokenomicsEvent(
+        kind=str(raw.get("kind") or "llm"),
+        name=str(raw.get("name") or f"{harness}.provider_call"),
+        trace_id=_trace_id(raw.get("trace_id") or raw.get("session_id")),
+        span_id=str(raw.get("span_id") or new_span_id()),
+        parent_span_id=raw.get("parent_span_id"),
+        session_id=raw.get("session_id"),
+        task_id=raw.get("task_id"),
+        capability_id=raw.get("capability_id"),
+        harness=harness,
+        role=role,  # type: ignore[arg-type]
+        status=str(raw.get("status") or "ok"),  # type: ignore[arg-type]
+        model=ModelRef(
+            provider=raw.get("provider"),
+            name=raw.get("model"),
+            origin_provider=raw.get("origin_provider") or raw.get("upstream_provider"),
+        )
+        if (raw.get("provider") or raw.get("model"))
+        else None,
+        usage=TokenUsage(
+            input_tokens=int(inp) if inp is not None else None,
+            output_tokens=int(out) if out is not None else None,
+            cached_input_tokens=int(cached) if cached is not None else None,
+            cache_write_input_tokens=int(cache_write) if cache_write is not None else None,
+            reasoning_tokens=int(reasoning) if reasoning is not None else None,
+            reported_total_tokens=int(reported) if reported is not None else None,
+            attribution=attribution,  # type: ignore[arg-type]
+            source="provider",
+        ),
+        economics=Economics(cost_usd=cost_f),
+        latency=Latency(duration_ms=raw.get("latency_ms") or raw.get("api_duration_ms")),
+        ts=float(raw.get("ts") or raw.get("timestamp") or __import__("time").time()),
+        extra={
+            "legacy_schema": raw.get("schema"),
+            "allocation_id": raw.get("allocation_id"),
+            "request_id": raw.get("request_id") or raw.get("response_id"),
+            "context_policy": raw.get("context_policy"),
+        },
+    )
+
+
+def from_omp_provider_usage(raw: dict[str, Any]) -> TokenomicsEvent:
+    """Thin adapter for OMP canonical provider usage rows."""
+    role = str(raw.get("role") or "root")
+    if role not in {"root", "rlm_worker", "subagent", "verifier", "router", "other"}:
+        role = "root"
+    return from_provider_usage(raw, harness="omp", role=role, attribution="incremental")
+
+
+def from_omp_session_aggregate(raw: dict[str, Any]) -> TokenomicsEvent:
+    """OMP session summary — aggregate reconciliation only."""
+    ev = from_omp_provider_usage(raw)
+    usage = ev.usage
+    if usage is None:
+        return ev
+    object.__setattr__(ev, "usage", TokenUsage(
+        input_tokens=usage.input_tokens,
+        output_tokens=usage.output_tokens,
+        cached_input_tokens=usage.cached_input_tokens,
+        cache_write_input_tokens=usage.cache_write_input_tokens,
+        reasoning_tokens=usage.reasoning_tokens,
+        reported_total_tokens=usage.reported_total_tokens or usage.total(),
+        attribution="aggregate",
+        source="provider",
+    ))
+    return ev
+
+
+def from_hermes_provider_usage(raw: dict[str, Any]) -> TokenomicsEvent:
+    """Thin adapter for Hermes turn_usage / aux_accounting usage rows."""
+    role = str(raw.get("role") or "root")
+    if role not in {"root", "rlm_worker", "subagent", "verifier", "router", "other"}:
+        role = "root"
+    return from_provider_usage(raw, harness="hermes", role=role, attribution="incremental")
+
+
+def from_hermes_session_aggregate(raw: dict[str, Any]) -> TokenomicsEvent:
+    ev = from_hermes_provider_usage(raw)
+    usage = ev.usage
+    if usage is None:
+        return ev
+    object.__setattr__(ev, "usage", TokenUsage(
+        input_tokens=usage.input_tokens,
+        output_tokens=usage.output_tokens,
+        cached_input_tokens=usage.cached_input_tokens,
+        cache_write_input_tokens=usage.cache_write_input_tokens,
+        reasoning_tokens=usage.reasoning_tokens,
+        reported_total_tokens=usage.reported_total_tokens or usage.total(),
+        attribution="aggregate",
+        source="provider",
+    ))
+    return ev
+

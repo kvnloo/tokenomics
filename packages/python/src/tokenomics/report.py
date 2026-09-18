@@ -9,7 +9,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Literal
 
-from .adapters import from_flow_prediction, from_flow_prepare, from_kerdoios_observation, from_z0int_receipt
+from .adapters import (
+    from_bespoke_curation,
+    from_flow_prediction,
+    from_flow_prepare,
+    from_hermes_provider_usage,
+    from_hermes_session_aggregate,
+    from_kerdoios_observation,
+    from_omp_provider_usage,
+    from_omp_session_aggregate,
+    from_z0int_receipt,
+)
 from .aggregate import tokens_per_verified_task
 from .models import TokenomicsEvent
 
@@ -204,9 +214,33 @@ def _coerce_event(raw: dict[str, Any]) -> TokenomicsEvent | None:
         raw = rec
         schema = str(raw.get("schema") or schema)
 
+
     if schema.startswith("tokenomics.event"):
         try:
             return TokenomicsEvent.from_dict(raw)
+        except Exception:
+            return None
+    if schema in {"omp.provider_usage.v0", "omp.session_usage.v0"} or (
+        str(raw.get("harness") or "").lower() == "omp" and raw.get("usage")
+    ):
+        try:
+            if schema.endswith("session_usage.v0") or raw.get("attribution") == "aggregate":
+                return from_omp_session_aggregate(raw)
+            return from_omp_provider_usage(raw)
+        except Exception:
+            return None
+    if schema in {"hermes.provider_usage.v0", "hermes.session_usage.v0"} or (
+        str(raw.get("harness") or "").lower() == "hermes" and (raw.get("usage") or raw.get("input_tokens") is not None)
+    ):
+        try:
+            if schema.endswith("session_usage.v0") or raw.get("attribution") == "aggregate":
+                return from_hermes_session_aggregate(raw)
+            return from_hermes_provider_usage(raw)
+        except Exception:
+            return None
+    if schema.startswith("bespoke.") or raw.get("intervention_kind"):
+        try:
+            return from_bespoke_curation(raw)
         except Exception:
             return None
     # Flow prepare lifecycle BEFORE z0int catch-all (rows also carry capability_id).

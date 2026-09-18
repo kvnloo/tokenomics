@@ -1,8 +1,19 @@
 """Agent Tokenomics: neutral measurement contracts for LLM harnesses."""
 
 from .aggregate import TraceSummary, summarize_trace, summarize_traces, tokens_per_verified_task
+from .coverage import COVERAGE_SCHEMA, build_coverage_report, coverage_report_from_sources, format_coverage_text
+from .gap_priority import gaps_for_autoresearch, rank_measurement_gaps
 from .report import REPORT_SCHEMA, build_savings_report, classify_savings, format_savings_text, savings_report_from_sources
-from .adapters import from_flow_prepare, from_flow_prediction, from_kerdoios_observation, from_z0int_receipt
+from .trace_accounting import TraceFrontierRollup, rollup_trace, rollup_traces
+from .adapters import (
+    from_flow_prepare,
+    from_flow_prediction,
+    from_hermes_provider_usage,
+    from_kerdoios_observation,
+    from_omp_provider_usage,
+    from_z0int_receipt,
+)
+from .emit import append_event, append_raw
 from .experiment import treatment_hash
 from .ids import new_event_id, new_span_id, new_trace_id
 from .jsonl import JsonlSink, iter_jsonl
@@ -35,6 +46,20 @@ __all__ = [
     "Recorder",
     "TokenUsage",
     "TokenomicsEvent",
+
+    "COVERAGE_SCHEMA",
+    "TraceFrontierRollup",
+    "build_coverage_report",
+    "coverage_report_from_sources",
+    "format_coverage_text",
+    "gaps_for_autoresearch",
+    "rank_measurement_gaps",
+    "rollup_trace",
+    "rollup_traces",
+    "from_hermes_provider_usage",
+    "from_omp_provider_usage",
+    "append_event",
+    "append_raw",
     "REPORT_SCHEMA",
     "TraceSummary",
     "build_savings_report",

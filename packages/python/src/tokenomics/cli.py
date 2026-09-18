@@ -10,6 +10,7 @@ from .aggregate import summarize_traces, tokens_per_verified_task
 from .jsonl import JsonlSink, iter_jsonl
 from .models import TokenomicsEvent
 from .otel import to_otel_attributes
+from .coverage import coverage_report_from_sources, format_coverage_text
 from .report import (
     format_savings_text,
     load_events_from_paths,
@@ -71,6 +72,16 @@ def _cmd_savings(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_coverage(args: argparse.Namespace) -> int:
+    paths = [Path(p) for p in (args.path or [])] or None
+    report = coverage_report_from_sources(range_spec=args.range, paths=paths)
+    if args.json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(format_coverage_text(report), end="")
+    return 0
+
+
 def _cmd_report(args: argparse.Namespace) -> int:
     """Alias for savings with JSON default — the product contract surface."""
     paths = [Path(p) for p in (args.path or [])] or None
@@ -109,6 +120,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--path", action="append", default=[], help="JSONL source (repeatable); default ~/.z0int")
     p.add_argument("--json", action="store_true", help="emit tokenomics.report.v1 JSON")
     p.set_defaults(func=_cmd_savings)
+
+    p = sub.add_parser(
+        "coverage",
+        help="tokenomics.coverage.v1 whole-system measurement coverage",
+    )
+    p.add_argument("--range", default="7d", help="today|7d|30d|24h|all")
+    p.add_argument("--path", action="append", default=[], help="JSONL source (repeatable)")
+    p.add_argument("--json", action="store_true", help="emit tokenomics.coverage.v1 JSON")
+    p.set_defaults(func=_cmd_coverage)
 
     p = sub.add_parser("report", help="emit tokenomics.report.v1 JSON (same as savings --json)")
     p.add_argument("--range", default="7d", help="today|7d|30d|24h|all")
