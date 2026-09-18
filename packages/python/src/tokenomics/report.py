@@ -423,6 +423,7 @@ def build_savings_report(
         e for e in rows if e.kind == "prepare" or (e.economics and e.economics.prepare_outcome)
     ]
     _OUTCOME_RANK = {
+        "would_prepare": 0,
         "prepare_created": 1,
         "prepare_expired": 2,
         "prepare_invalidated": 2,
@@ -451,9 +452,12 @@ def build_savings_report(
                 by_pred[pid] = (weight, rank, ev)
     chosen = [trip[2] for trip in by_pred.values()] + unkeyed
 
-    created = consumed = expired = invalidated = 0
+    created = consumed = expired = invalidated = would_prepare = 0
     latency_hidden_ms = 0.0
+    counterfactual_blocking_ms = 0.0
+    commit_setup_ms_sum = 0.0
     by_provider_prep: Counter[str] = Counter()
+    by_operator_horizon: dict[tuple[str, int], dict[str, Any]] = {}
     frontier_replaced_sum = 0
     # Speculation cost: sum create costs once per prediction (from create event if present).
     create_cost_by_pred: dict[str, float] = {}
@@ -473,22 +477,67 @@ def build_savings_report(
         if not eco or not eco.prepare_outcome:
             continue
         oc = eco.prepare_outcome
-        if oc == "prepare_created":
+        extra = ev.extra or {}
+        horizon_ms = int(extra.get("horizon_ms") or 0)
+        provider = str(eco.prepare_provider or extra.get("operator_family") or "unknown")
+        oh_key = (provider, horizon_ms)
+        bucket = by_operator_horizon.setdefault(
+            oh_key,
+            {
+                "operator": provider,
+                "horizon_ms": horizon_ms,
+                "prepared": 0,
+                "would_prepare": 0,
+                "consumed": 0,
+                "expired": 0,
+                "invalidated": 0,
+                "latency_hidden_ms": 0.0,
+                "speculation_cost_ms": 0.0,
+                "counterfactual_blocking_ms": 0.0,
+                "net_ms": 0.0,
+            },
+        )
+        if oc == "would_prepare":
+            would_prepare += 1
+            bucket["would_prepare"] += 1
+        elif oc == "prepare_created":
             created += 1
+            bucket["prepared"] += 1
+            if eco.prepare_cost_ms:
+                bucket["speculation_cost_ms"] += float(eco.prepare_cost_ms)
         elif oc == "prepare_consumed":
             consumed += 1
-            # A consume implies a prior create for hit-rate denominator.
             created += 1
+            bucket["prepared"] += 1
+            bucket["consumed"] += 1
             if eco.latency_hidden_ms:
                 latency_hidden_ms += float(eco.latency_hidden_ms)
+                bucket["latency_hidden_ms"] += float(eco.latency_hidden_ms)
+            cf = extra.get("counterfactual_blocking_ms")
+            if cf is not None:
+                counterfactual_blocking_ms += float(cf)
+                bucket["counterfactual_blocking_ms"] += float(cf)
+            cs = extra.get("commit_setup_ms")
+            if cs is not None:
+                commit_setup_ms_sum += float(cs)
+            if eco.prepare_cost_ms:
+                bucket["speculation_cost_ms"] += float(eco.prepare_cost_ms)
             if eco.frontier_tokens_replaced:
                 frontier_replaced_sum += int(eco.frontier_tokens_replaced)
         elif oc == "prepare_expired":
             expired += 1
             created += 1
+            bucket["prepared"] += 1
+            bucket["expired"] += 1
+            if eco.prepare_cost_ms:
+                bucket["speculation_cost_ms"] += float(eco.prepare_cost_ms)
         elif oc == "prepare_invalidated":
             invalidated += 1
             created += 1
+            bucket["prepared"] += 1
+            bucket["invalidated"] += 1
+            if eco.prepare_cost_ms:
+                bucket["speculation_cost_ms"] += float(eco.prepare_cost_ms)
         if eco.prepare_provider:
             by_provider_prep[str(eco.prepare_provider)] += 1
 
@@ -498,10 +547,27 @@ def build_savings_report(
     # Hit rate uses created as denominator after terminal backfill.
 
     hit_rate = (consumed / created) if created > 0 else None
+    net_prepare_value_ms = round(latency_hidden_ms - speculation_cost_ms, 3)
+    prepare_efficiency = (
+        round(latency_hidden_ms / speculation_cost_ms, 2)
+        if speculation_cost_ms > 0
+        else None
+    )
+    for bucket in by_operator_horizon.values():
+        bucket["net_ms"] = round(
+            float(bucket["latency_hidden_ms"]) - float(bucket["speculation_cost_ms"]), 3
+        )
+        for k in (
+            "latency_hidden_ms",
+            "speculation_cost_ms",
+            "counterfactual_blocking_ms",
+        ):
+            bucket[k] = round(float(bucket[k]), 3)
     pred_ids = set(by_pred.keys())
     prepare_funnel = {
         "predictions": len(pred_ids) if pred_ids else None,
         "prepared": created,
+        "would_prepare": would_prepare,
         "consumed": consumed,
         "expired": expired,
         "invalidated": invalidated,
@@ -510,14 +576,22 @@ def build_savings_report(
         "prepare_hit_rate": round(hit_rate, 4) if hit_rate is not None else None,
         "latency_hidden_ms": round(latency_hidden_ms, 3),
         "speculation_overhead_ms": round(speculation_cost_ms, 3),
+        "net_prepare_value_ms": net_prepare_value_ms,
+        "prepare_efficiency": prepare_efficiency,
+        "counterfactual_blocking_ms": round(counterfactual_blocking_ms, 3),
+        "commit_setup_ms": round(commit_setup_ms_sum, 3),
         "prepare_bytes_sum": int(prepare_bytes_sum),
         "frontier_tokens_replaced_on_consume": int(frontier_replaced_sum),
         "by_provider": [
             {"provider": k, "events": int(v)} for k, v in by_provider_prep.most_common()
         ],
+        "by_operator_horizon": sorted(
+            by_operator_horizon.values(), key=lambda r: (-r["consumed"], r["operator"], r["horizon_ms"])
+        ),
         "rule": (
             "Do not credit prepare_created as savings. "
             "latency_hidden only on prepare_consumed. "
+            "net_prepare_value_ms = latency_hidden - speculation_overhead (expired/invalidated stay in cost). "
             "Token avoidance only when frontier_tokens_replaced > 0 on consume."
         ),
     }
@@ -654,9 +728,13 @@ def format_savings_text(report: dict[str, Any]) -> str:
             f"Consumed                     {pf.get('consumed', 0)}",
             f"Expired                      {pf.get('expired', 0)}",
             f"Invalidated                  {pf.get('invalidated', 0)}",
+            f"Would prepare (withheld)     {pf.get('would_prepare', 0)}",
             f"Prepare hit rate             {_fmt_pct(pf.get('prepare_hit_rate'))}",
             f"Latency hidden               {_fmt_ms(pf.get('latency_hidden_ms'))}",
             f"Speculation overhead         {_fmt_ms(pf.get('speculation_overhead_ms'))}",
+            f"Net prepare value            {_fmt_ms(pf.get('net_prepare_value_ms'))}",
+            f"Prepare efficiency           {pf.get('prepare_efficiency') if pf.get('prepare_efficiency') is not None else '—'}",
+            f"Counterfactual blocking      {_fmt_ms(pf.get('counterfactual_blocking_ms'))}",
             f"Frontier tokens replaced*    {_fmt_tok(pf.get('frontier_tokens_replaced_on_consume'))}",
             "  * only on consume that replaced a model call — create earns 0",
         ]

@@ -141,3 +141,49 @@ def test_flow_prediction_lift_commit_marks_consumed():
     assert ev.economics.prepare_outcome == "prepare_consumed"
     assert ev.economics.time_to_commit_ms is not None
     assert ev.economics.time_to_commit_ms >= 3900
+
+
+def test_net_prepare_value_headline():
+    now = time.time()
+    rows = [
+        from_flow_prepare(
+            {
+                "schema": "flow.prepare.v1",
+                "prepare_outcome": "prepare_created",
+                "prepare_cost_ms": 5.0,
+                "prepare_provider": "run_test",
+                "prediction_id": "p1",
+                "horizon_ms": 2000,
+                "ts": now,
+            }
+        ),
+        from_flow_prepare(
+            {
+                "schema": "flow.prepare.v1",
+                "prepare_outcome": "prepare_consumed",
+                "prepare_cost_ms": 5.0,
+                "prepare_provider": "run_test",
+                "prediction_id": "p1",
+                "latency_hidden_ms": 18.0,
+                "horizon_ms": 2000,
+                "ts": now + 1,
+            }
+        ),
+        from_flow_prepare(
+            {
+                "schema": "flow.prepare.v1",
+                "prepare_outcome": "would_prepare",
+                "prepare_provider": "inspect_result",
+                "prediction_id": "p2",
+                "horizon_ms": 2000,
+                "ts": now + 2,
+            }
+        ),
+    ]
+    report = build_savings_report(rows, range_spec="all", now=now + 3)
+    pf = report["prepare_funnel"]
+    assert pf["net_prepare_value_ms"] == 13.0
+    assert pf["would_prepare"] == 1
+    assert pf["by_operator_horizon"]
+    text = format_savings_text(report)
+    assert "Net prepare value" in text

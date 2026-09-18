@@ -223,7 +223,7 @@ def from_flow_prepare(raw: dict[str, Any], *, harness: str = "flow") -> Tokenomi
         capability_id=raw.get("capability_id") or raw.get("operator_family") or "flow.prepare",
         harness=harness,
         role="router",
-        status="ok" if outcome in {"prepare_created", "prepare_consumed"} else "cancelled",
+        status="ok" if outcome in {"prepare_created", "prepare_consumed", "would_prepare"} else "cancelled",
         economics=Economics(
             estimated_tokens_avoided=estimated_avoided,
             measured_tokens_avoided=measured_avoided,
@@ -247,6 +247,11 @@ def from_flow_prepare(raw: dict[str, Any], *, harness: str = "flow") -> Tokenomi
             "operator_family": raw.get("operator_family"),
             "kind": raw.get("kind"),
             "legacy_schema": raw.get("schema"),
+            "horizon_ms": raw.get("horizon_ms"),
+            "prepare_arm": raw.get("prepare_arm"),
+            "commit_setup_ms": raw.get("commit_setup_ms"),
+            "counterfactual_blocking_ms": raw.get("counterfactual_blocking_ms"),
+            "test_execution_ms": raw.get("test_execution_ms"),
         },
     )
 
