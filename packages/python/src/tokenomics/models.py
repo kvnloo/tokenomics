@@ -18,6 +18,7 @@ EventKind = Literal[
     "verification",
     "quota",
     "placement",
+    "prepare",
     "other",
 ]
 EventStatus = Literal["ok", "error", "cancelled", "unknown"]
@@ -95,6 +96,16 @@ class Economics:
     cache_write_price_usd_per_million: float | None = None
     estimated_tokens_avoided: int | None = None
     measured_tokens_avoided: int | None = None
+    # Prepare/speculation economics (non-LLM compute). Never credit token
+    # avoidance on create alone — only on consume that replaced frontier work.
+    prepare_outcome: str | None = None  # prepare_created|consumed|expired|invalidated
+    prepare_cost_ms: float | None = None
+    prepare_bytes: int | None = None
+    prepare_provider: str | None = None
+    time_to_commit_ms: float | None = None
+    latency_hidden_ms: float | None = None  # only when consumed
+    manual_equivalent: bool | None = None
+    frontier_tokens_replaced: int | None = None  # only if consume replaced a model call
 
 
 @dataclass(frozen=True)
@@ -140,6 +151,19 @@ class Experiment:
     reason_for_reference: str | None = None
     replay_grade: str | None = None
     verifier_class: str | None = None
+    # Curation lineage (optional). Never treat curation_accepted as verified_success.
+    parent_example_id: str | None = None
+    contrast_group_id: str | None = None
+    source_family_id: str | None = None
+    intervention_kind: str | None = None  # relevant_edit | evidence_delete | invariant_control
+    supervision_kind: str | None = None  # deterministic | model_checked_synthetic | live_verified
+    acceptance_status: str | None = None  # accepted | rejected | partial
+    rejection_stage: str | None = None
+    gate_revision: str | None = None
+    reuse_kind: str | None = None  # fresh | cache | offline_replay
+    original_event_ref: str | None = None
+    evaluation_cohort: str | None = None
+    production_credit_eligible: bool | None = None
 
 
 @dataclass

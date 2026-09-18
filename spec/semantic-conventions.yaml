@@ -60,3 +60,19 @@ groups:
       - id: tokenomics.experiment.treatment_hash
         type: string
         brief: Stable fingerprint for model/prompt/context/tool treatment.
+      - id: tokenomics.curation.accepted
+        type: boolean
+        brief: Curation gate accepted a synthetic/contrast pair. Never equivalent to outcome.verified_success.
+      - id: tokenomics.curation.reuse
+        type: string
+        brief: fresh, cache, or offline_replay. Cache/replay must not double-count provider cost.
+      - id: tokenomics.experiment.contrast_group_id
+        type: string
+        brief: Contrast pair or family identifier for sensitivity checks.
+      - id: tokenomics.experiment.intervention_kind
+        type: string
+        brief: relevant_edit, evidence_delete, or invariant_control.
+      - id: tokenomics.experiment.production_credit_eligible
+        type: boolean
+        brief: False for synthetic curation rows; live verified tasks only earn production credit.
+
