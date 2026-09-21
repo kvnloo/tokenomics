@@ -118,23 +118,43 @@ def from_kerdoios_observation(raw: dict[str, Any], *, harness: str = "kerdoios")
     if raw.get("quota_after") is not None or raw.get("remaining_quota") is not None:
         value = raw.get("quota_after", raw.get("remaining_quota"))
         quota_after = QuotaSnapshot(remaining=float(value), source=raw.get("remaining_source"))
-    outcome = Outcome(
-        execution_completed=bool(raw.get("completed")),
-        verified_success=True if raw.get("verified") is True else None,
-        success=bool(raw.get("completed")),
-        source="kerdoios_observed",
-        retries=int(raw.get("fallback_count") or (1 if raw.get("retried") else 0)),
+    # Absent execution signal stays unknown — never coerced to failed.
+    completed = raw.get("completed")
+    completed_b = completed if isinstance(completed, bool) else None
+    # Absent retry signal stays unknown — never coerced to "zero retries".
+    fallback_count = raw.get("fallback_count")
+    retried = raw.get("retried")
+    retries = (
+        None
+        if fallback_count is None and retried is None
+        else int(fallback_count or (1 if retried else 0))
     )
+    outcome = Outcome(
+        execution_completed=completed_b,
+        verified_success=True if raw.get("verified") is True else None,
+        success=completed_b,
+        source="kerdoios_observed",
+        retries=retries,
+    )
+    # Cost is unknown when the provider row omits it — never fabricate a zero,
+    # so a genuinely free-quota call (0.0) stays distinguishable from missing data.
+    cost_raw = raw.get("actual_cost")
+    try:
+        cost_f = float(cost_raw) if cost_raw is not None else None
+    except (TypeError, ValueError):
+        cost_f = None
     return TokenomicsEvent(
         kind="placement",
         name=str(raw.get("capability_id") or raw.get("task_type") or "kerdoios.placement"),
         trace_id=_trace_id(raw.get("trace_id")),
         span_id=new_span_id(),
         session_id=raw.get("session_id"),
+        task_id=raw.get("task_id"),
         capability_id=raw.get("capability_id"),
+        request_id=raw.get("request_id") or raw.get("response_id"),
         harness=harness,
         role="router",
-        status="ok" if raw.get("completed") else "error",
+        status="ok" if completed_b is True else ("error" if completed_b is False else "unknown"),
         model=ModelRef(
             provider=raw.get("provider"),
             origin_provider=raw.get("origin_provider"),
@@ -148,11 +168,15 @@ def from_kerdoios_observation(raw: dict[str, Any], *, harness: str = "kerdoios")
             attribution="incremental",
             source="provider",
         ),
-        economics=Economics(cost_usd=float(raw.get("actual_cost") or 0.0)),
+        economics=Economics(cost_usd=cost_f),
         latency=Latency(duration_ms=raw.get("latency_ms")),
         quota_before=quota_before,
         quota_after=quota_after,
         outcome=outcome,
+        started_at=raw.get("started_at"),
+        ended_at=raw.get("ended_at"),
+        ts=float(raw.get("ts") or raw.get("ended_at") or raw.get("started_at") or 0)
+        or __import__("time").time(),
         attributes={
             k: v
             for k, v in {
@@ -447,6 +471,7 @@ def from_provider_usage(
         session_id=raw.get("session_id"),
         task_id=raw.get("task_id"),
         capability_id=raw.get("capability_id"),
+        request_id=raw.get("request_id") or raw.get("response_id"),
         harness=harness,
         role=role,  # type: ignore[arg-type]
         status=str(raw.get("status") or "ok"),  # type: ignore[arg-type]

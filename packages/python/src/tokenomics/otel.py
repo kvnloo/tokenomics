@@ -29,6 +29,7 @@ def to_otel_attributes(event: TokenomicsEvent) -> dict[str, str | int | float | 
     _put(attrs, "tokenomics.session.id", event.session_id)
     _put(attrs, "tokenomics.task.id", event.task_id)
     _put(attrs, "tokenomics.capability.id", event.capability_id)
+    _put(attrs, "tokenomics.request.id", event.request_id)
     _put(attrs, "tokenomics.harness.name", event.harness)
     _put(attrs, "service.name", event.service)
 

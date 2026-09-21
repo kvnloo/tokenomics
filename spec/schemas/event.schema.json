@@ -62,6 +62,9 @@
     "capability_id": {
       "type": "string"
     },
+    "request_id": {
+      "type": "string"
+    },
     "harness": {
       "type": "string"
     },

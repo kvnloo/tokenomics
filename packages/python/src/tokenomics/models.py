@@ -231,6 +231,10 @@ class TokenomicsEvent:
     session_id: str | None = None
     task_id: str | None = None
     capability_id: str | None = None
+    # Provider/upstream request id (e.g. x-request-id / response.id). Stable
+    # join key for reconciling one receipt against a provider or capacity-owner
+    # projection; never a substitute for trace_id/task_id.
+    request_id: str | None = None
     harness: str | None = None
     service: str | None = None
     role: ExecutionRole = "other"

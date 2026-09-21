@@ -21,6 +21,7 @@ def test_event_schema_accepts_sdk_output_with_nested_refs():
     event = TokenomicsEvent(
         kind="task",
         name="x",
+        request_id="req-1",
         experiment=Experiment(experiment_id="e", arm_id="a"),
         outcome=Outcome(verified_success=True, verification_source="tests"),
     )

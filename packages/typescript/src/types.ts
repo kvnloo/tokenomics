@@ -112,6 +112,7 @@ export interface TokenomicsEvent {
   session_id?: string;
   task_id?: string;
   capability_id?: string;
+  request_id?: string;
   harness?: string;
   service?: string;
   role: ExecutionRole;

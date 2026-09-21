@@ -22,7 +22,13 @@ def test_usage_total_prefers_reported_total():
 
 
 def test_event_roundtrip():
-    event = TokenomicsEvent(kind="llm", name="call", usage=TokenUsage(input_tokens=10, output_tokens=2))
+    event = TokenomicsEvent(
+        kind="llm",
+        name="call",
+        request_id="req_roundtrip",
+        usage=TokenUsage(input_tokens=10, output_tokens=2),
+    )
     got = TokenomicsEvent.from_dict(event.to_dict())
     assert got.trace_id == event.trace_id
+    assert got.request_id == "req_roundtrip"
     assert got.usage and got.usage.total() == 12

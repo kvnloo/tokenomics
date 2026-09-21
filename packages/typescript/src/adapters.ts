@@ -41,15 +41,23 @@ export function fromZ0intReceipt(raw: Record<string, unknown>): TokenomicsEvent 
 }
 
 export function fromKerdoiosObservation(raw: Record<string, unknown>): TokenomicsEvent {
+  const fallback = raw.fallback_count as number | undefined;
+  const retried = raw.retried as boolean | undefined;
+  // Absent retry signal stays unknown — never coerced to "zero retries".
+  const retries = fallback === undefined && retried === undefined
+    ? undefined
+    : Number(fallback ?? (retried ? 1 : 0));
   return makeEvent({
     kind: "placement",
     name: String(raw.capability_id ?? raw.task_type ?? "kerdoios.placement"),
     trace_id: normalizeTrace(raw.trace_id),
     session_id: raw.session_id as string | undefined,
+    task_id: raw.task_id as string | undefined,
     capability_id: raw.capability_id as string | undefined,
+    request_id: (raw.request_id ?? raw.response_id) as string | undefined,
     harness: "kerdoios",
     role: "router",
-    status: raw.completed ? "ok" : "error",
+    status: raw.completed === undefined ? "unknown" : (raw.completed ? "ok" : "error"),
     model: { provider: raw.provider as string | undefined, origin_provider: raw.origin_provider as string | undefined, name: raw.model as string | undefined },
     usage: {
       input_tokens: raw.input_tokens as number | undefined,
@@ -59,10 +67,22 @@ export function fromKerdoiosObservation(raw: Record<string, unknown>): Tokenomic
       attribution: "incremental",
       source: "provider",
     },
-    economics: { cost_usd: Number(raw.actual_cost ?? 0) },
+    // Unknown cost stays undefined so a free-quota 0.0 is not conflated with missing data.
+    economics: raw.actual_cost === undefined || raw.actual_cost === null ? undefined : { cost_usd: Number(raw.actual_cost) },
     latency: { duration_ms: raw.latency_ms as number | undefined },
     quota_before: raw.quota_before === undefined ? undefined : { remaining: Number(raw.quota_before), source: raw.remaining_source as string | undefined },
     quota_after: (raw.quota_after ?? raw.remaining_quota) === undefined ? undefined : { remaining: Number(raw.quota_after ?? raw.remaining_quota), source: raw.remaining_source as string | undefined },
-    outcome: { execution_completed: Boolean(raw.completed), success: Boolean(raw.completed), source: "kerdoios_observed" },
+    outcome: {
+      // Absent execution signal stays unknown — never coerced to failed.
+      execution_completed: raw.completed === undefined ? undefined : Boolean(raw.completed),
+      success: raw.completed === undefined ? undefined : Boolean(raw.completed),
+      // verified_success is only true when the row asserts it; absent otherwise.
+      verified_success: raw.verified === true ? true : undefined,
+      retries,
+      source: "kerdoios_observed",
+    },
+    started_at: raw.started_at as number | undefined,
+    ended_at: raw.ended_at as number | undefined,
+    ts: (raw.ts ?? raw.ended_at ?? raw.started_at) as number | undefined,
   });
 }
