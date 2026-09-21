@@ -28,6 +28,16 @@ from .models import (
     TokenUsage,
     TokenomicsEvent,
 )
+from .orchestration import (
+    SCHEMA,
+    SCHEMA as ORCHESTRATION_SCHEMA,
+    LatencySummary,
+    OrchestrationObservation,
+    observation_to_event,
+    percentile,
+    summarize_latency,
+    summarize_observations,
+)
 from .otel import OtelSink, to_otel_attributes
 from .recorder import MemorySink, MultiSink, Recorder
 
@@ -37,9 +47,11 @@ __all__ = [
     "Experiment",
     "JsonlSink",
     "Latency",
+    "LatencySummary",
     "MemorySink",
     "ModelRef",
     "MultiSink",
+    "OrchestrationObservation",
     "OtelSink",
     "Outcome",
     "QuotaSnapshot",
@@ -48,6 +60,8 @@ __all__ = [
     "TokenomicsEvent",
 
     "COVERAGE_SCHEMA",
+    "ORCHESTRATION_SCHEMA",
+    "SCHEMA",
     "TraceFrontierRollup",
     "build_coverage_report",
     "coverage_report_from_sources",
@@ -74,6 +88,10 @@ __all__ = [
     "new_event_id",
     "new_span_id",
     "new_trace_id",
+    "observation_to_event",
+    "percentile",
+    "summarize_latency",
+    "summarize_observations",
     "summarize_trace",
     "summarize_traces",
     "to_otel_attributes",
