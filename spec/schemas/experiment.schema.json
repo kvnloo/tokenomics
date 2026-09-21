@@ -4,17 +4,77 @@
   "title": "Tokenomics Experiment v0",
   "type": "object",
   "properties": {
-    "experiment_id": {"type": "string"},
-    "pair_id": {"type": "string"},
-    "task_snapshot_id": {"type": "string"},
-    "arm_id": {"type": "string"},
-    "treatment_hash": {"type": "string"},
-    "selection_policy": {"type": "string"},
-    "assignment_probability": {"type": "number", "minimum": 0, "maximum": 1},
-    "reference_requested": {"type": "boolean"},
-    "reason_for_reference": {"type": "string"},
-    "replay_grade": {"type": "string"},
-    "verifier_class": {"type": "string"}
+    "experiment_id": {
+      "type": "string"
+    },
+    "pair_id": {
+      "type": "string"
+    },
+    "task_snapshot_id": {
+      "type": "string"
+    },
+    "arm_id": {
+      "type": "string"
+    },
+    "treatment_hash": {
+      "type": "string"
+    },
+    "selection_policy": {
+      "type": "string"
+    },
+    "assignment_probability": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "reference_requested": {
+      "type": "boolean"
+    },
+    "reason_for_reference": {
+      "type": "string"
+    },
+    "replay_grade": {
+      "type": "string"
+    },
+    "verifier_class": {
+      "type": "string"
+    },
+    "parent_example_id": {
+      "type": "string"
+    },
+    "contrast_group_id": {
+      "type": "string"
+    },
+    "source_family_id": {
+      "type": "string"
+    },
+    "intervention_kind": {
+      "type": "string"
+    },
+    "supervision_kind": {
+      "type": "string"
+    },
+    "acceptance_status": {
+      "type": "string"
+    },
+    "rejection_stage": {
+      "type": "string"
+    },
+    "gate_revision": {
+      "type": "string"
+    },
+    "reuse_kind": {
+      "type": "string"
+    },
+    "original_event_ref": {
+      "type": "string"
+    },
+    "evaluation_cohort": {
+      "type": "string"
+    },
+    "production_credit_eligible": {
+      "type": "boolean"
+    }
   },
   "additionalProperties": false
 }
