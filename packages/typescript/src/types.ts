@@ -8,6 +8,7 @@ export type ExecutionRole = "root" | "rlm_worker" | "subagent" | "verifier" | "r
 export type UsageAttribution = "incremental" | "aggregate" | "unknown";
 export type UsageSource = "provider" | "estimated" | "derived" | "unknown";
 export type MeasurementIdentityBasis = "provider" | "storage" | "operator" | "derived" | "unknown";
+export type MeasurementState = "complete" | "partial" | "unsupported" | "failed" | "unknown";
 export type OutcomeTier = "gold" | "negative" | "execution" | "soft" | "unknown";
 
 export interface ModelRef {
@@ -27,6 +28,10 @@ export interface MeasurementSourceRef {
   physical_source_id?: string;
   /** How the identity was established; provenance, not a confidence score. */
   identity_basis?: MeasurementIdentityBasis;
+  /** Whether the measurement is authoritative for its declared scope. */
+  measurement_state?: MeasurementState;
+  /** Optional bounded reason code; never a raw provider error or secret-bearing message. */
+  state_reason?: string;
 }
 
 export interface TokenUsage {

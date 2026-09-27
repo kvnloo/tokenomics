@@ -26,6 +26,7 @@ ExecutionRole = Literal["root", "rlm_worker", "subagent", "verifier", "router", 
 UsageAttribution = Literal["incremental", "aggregate", "unknown"]
 UsageSource = Literal["provider", "estimated", "derived", "unknown"]
 MeasurementIdentityBasis = Literal["provider", "storage", "operator", "derived", "unknown"]
+MeasurementState = Literal["complete", "partial", "unsupported", "failed", "unknown"]
 OutcomeTier = Literal["gold", "negative", "execution", "soft", "unknown"]
 
 GOLD_SIGNALS = (
@@ -78,6 +79,8 @@ class MeasurementSourceRef:
     logical_source_id: str | None = None
     physical_source_id: str | None = None
     identity_basis: MeasurementIdentityBasis | None = None
+    measurement_state: MeasurementState | None = None
+    state_reason: str | None = None
 
 
 @dataclass(frozen=True)

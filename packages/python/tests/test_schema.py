@@ -26,6 +26,8 @@ def test_event_schema_accepts_sdk_output_with_nested_refs():
             logical_source_id="claude-account-a",
             physical_source_id="host-a:claude-store",
             identity_basis="storage",
+            measurement_state="partial",
+            state_reason="sparse_runtime_update",
         ),
         experiment=Experiment(
             experiment_id="e",

@@ -31,12 +31,29 @@ def test_event_roundtrip():
             logical_source_id="account-a",
             physical_source_id="host-a:store-1",
             identity_basis="storage",
+            measurement_state="complete",
         ),
     )
     got = TokenomicsEvent.from_dict(event.to_dict())
     assert got.trace_id == event.trace_id
     assert got.usage and got.usage.total() == 12
     assert got.measurement_source == event.measurement_source
+
+
+def test_measurement_state_is_independent_from_event_status():
+    event = TokenomicsEvent(
+        kind="quota",
+        name="limits.read",
+        status="ok",
+        usage=TokenUsage(reported_total_tokens=42, attribution="aggregate", source="provider"),
+        measurement_source=MeasurementSourceRef(
+            logical_source_id="account-a",
+            measurement_state="failed",
+            state_reason="probe_failed",
+        ),
+    )
+    assert event.status == "ok"
+    assert event.measurement_source and event.measurement_source.measurement_state == "failed"
 
 
 def test_physical_identity_is_explicit_not_inferred_from_other_ids():

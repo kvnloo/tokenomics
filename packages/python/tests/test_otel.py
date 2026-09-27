@@ -21,6 +21,8 @@ def test_otel_mapping_uses_genai_for_standard_usage_and_custom_context():
             logical_source_id="account-a",
             physical_source_id="host-a:store-1",
             identity_basis="storage",
+            measurement_state="partial",
+            state_reason="sparse_runtime_update",
         ),
         context=ContextEconomics(policy="rlm-search", granted_bytes=4096, missed_evidence_count=0),
         outcome=Outcome(execution_completed=True),
@@ -32,6 +34,8 @@ def test_otel_mapping_uses_genai_for_standard_usage_and_custom_context():
     assert attrs["tokenomics.measurement.logical_source_id"] == "account-a"
     assert attrs["tokenomics.measurement.physical_source_id"] == "host-a:store-1"
     assert attrs["tokenomics.measurement.identity_basis"] == "storage"
+    assert attrs["tokenomics.measurement.state"] == "partial"
+    assert attrs["tokenomics.measurement.state_reason"] == "sparse_runtime_update"
     assert attrs["tokenomics.context.granted_bytes"] == 4096
     assert attrs["tokenomics.outcome.tier"] == "execution"
     assert not any("prompt" in k or "completion" in k for k in attrs)

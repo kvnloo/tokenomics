@@ -74,10 +74,14 @@ This lets an OMP trace contain root + RLM worker calls and also a final provider
 - `logical_source_id`: stable provider-native account, workspace, quota pool, session, or other grouping identity when available. Do not use email, plan names, or other mutable display labels as a durable id.
 - `physical_source_id`: explicit adapter assertion that two observations came from the same underlying measurement source.
 - `identity_basis`: how the identity was established.
+- `measurement_state`: whether the measurement is `complete`, `partial`, `unsupported`, `failed`, or `unknown`.
+- `state_reason`: optional bounded reason code for that state.
 
 Only an explicit `physical_source_id` is generally safe for cross-observer dedupe. Same hostname, path text, logical account, or overlapping sessions are not sufficient evidence.
 
 For logical grouping, prefer an opaque provider-native account/workspace identifier. Email, plan/tier labels, and organization display names are useful metadata but are not stable account identity when one login can belong to multiple subscriptions or organizations.
+
+Measurement state is independent from event execution status. A successful task can carry a failed telemetry read, and a sparse provider update can contain real values while remaining partial. Presence of numbers must never be treated as implicit completeness.
 
 ## Quick start: Python
 
