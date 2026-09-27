@@ -18,7 +18,8 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test dist/test/*.test.js"
+    "test": "npm run build && node --test dist/test/*.test.js",
+    "prepack": "npm run build"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
@@ -31,5 +32,28 @@
     "@opentelemetry/api": {
       "optional": true
     }
+  },
+  "homepage": "https://github.com/kvnloo/tokenomics#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kvnloo/tokenomics",
+    "directory": "packages/typescript"
+  },
+  "bugs": {
+    "url": "https://github.com/kvnloo/tokenomics/issues"
+  },
+  "keywords": [
+    "llm",
+    "agents",
+    "observability",
+    "opentelemetry",
+    "token-usage",
+    "evaluation"
+  ],
+  "engines": {
+    "node": ">=22.14.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

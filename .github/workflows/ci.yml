@@ -10,7 +10,7 @@ jobs:
       matrix:
         python-version: ["3.10", "3.13"]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
@@ -21,12 +21,42 @@ jobs:
   typescript:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: "24"
       - working-directory: packages/typescript
         run: npm install --ignore-scripts --no-audit --no-fund
       - working-directory: packages/typescript
         run: npm test
       - run: PYTHONPATH=packages/python/src python scripts/check_conformance.py
+
+  package-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: python -m pip install --upgrade build
+      - run: python -m build
+      - run: |
+          python -m venv /tmp/tokenomics-wheel
+          /tmp/tokenomics-wheel/bin/pip install dist/*.whl
+          /tmp/tokenomics-wheel/bin/python -c "import tokenomics; assert tokenomics.__version__ == '0.1.0'"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - working-directory: packages/typescript
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - working-directory: packages/typescript
+        run: npm test
+      - run: mkdir -p dist-npm
+      - working-directory: packages/typescript
+        run: npm pack --pack-destination ../../dist-npm
+      - run: |
+          mkdir -p /tmp/tokenomics-npm
+          cd /tmp/tokenomics-npm
+          npm init -y >/dev/null
+          npm install "$GITHUB_WORKSPACE"/dist-npm/*.tgz --ignore-scripts --no-audit --no-fund
+          node --input-type=module -e "import * as tokenomics from '@agent-tokenomics/core'; if (!tokenomics.Recorder) process.exit(1)"

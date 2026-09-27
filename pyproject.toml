@@ -9,7 +9,21 @@ description = "Vendor-neutral measurement contracts for LLMs, agents, harnesses,
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
+keywords = ["llm", "agents", "observability", "opentelemetry", "token-usage", "evaluation"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.13",
+  "Typing :: Typed",
+]
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/kvnloo/tokenomics"
+Repository = "https://github.com/kvnloo/tokenomics"
+Issues = "https://github.com/kvnloo/tokenomics/issues"
 
 [project.optional-dependencies]
 otel = [
@@ -34,6 +48,9 @@ package-dir = {"" = "packages/python/src"}
 
 [tool.setuptools.packages.find]
 where = ["packages/python/src"]
+
+[tool.setuptools.package-data]
+tokenomics = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["packages/python/tests"]
