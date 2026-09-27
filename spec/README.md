@@ -58,3 +58,12 @@ Numeric values do not imply that a measurement is complete.
 Event execution `status` and measurement state are independent. A task can finish successfully while a usage/quota probe fails. Likewise, a sparse provider update may carry valid values while remaining `partial`.
 
 Consumers must not silently promote `partial`, `failed`, `unsupported`, or missing state to `complete`. Missing state means `unknown`.
+
+
+## Aggregation authority
+
+Completeness propagates into derived economics.
+
+Observed nonnegative usage/cost from incomplete measurements may be retained for diagnostics and lower-bound accounting, but a derived result is authoritative only when its contributing measurement scope is explicitly complete.
+
+A paired baseline plus an explicitly partial/failed/unsupported actual measurement must not mint measured savings. Legacy events without measurement state remain numerically backward-compatible, but their aggregates are `unknown` rather than explicitly authoritative.

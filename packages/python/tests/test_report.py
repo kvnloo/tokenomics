@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 
 from tokenomics.adapters import from_z0int_receipt
-from tokenomics.models import Economics, Outcome, TokenUsage, TokenomicsEvent
+from tokenomics.models import Economics, MeasurementSourceRef, Outcome, TokenUsage, TokenomicsEvent
 from tokenomics.report import (
     REPORT_SCHEMA,
     build_savings_report,
@@ -79,6 +79,75 @@ def test_classify_measured_vs_estimated_vs_unknown():
     assert avoided == 0
 
 
+def test_partial_actual_cannot_mint_measured_savings():
+    now = time.time()
+    ev = from_z0int_receipt(
+        {
+            "schema": "z0int.decision_receipt.v1",
+            "trace_id": _tid(30),
+            "capability_id": "coding.next_action",
+            "route": "model",
+            "baseline_input_tokens": 2000,
+            "baseline_output_tokens": 500,
+            "measured_frontier_tokens": 900,
+            "ts": now,
+        }
+    )
+    ev.measurement_source = MeasurementSourceRef(measurement_state="partial")
+    tier, base, actual, avoided = classify_savings(ev)
+    assert tier == "unknown"
+    assert base == 2500
+    assert actual == 900
+    assert avoided == 0
+
+
+def test_complete_actual_keeps_measured_savings_authoritative():
+    now = time.time()
+    ev = from_z0int_receipt(
+        {
+            "schema": "z0int.decision_receipt.v1",
+            "trace_id": _tid(31),
+            "capability_id": "coding.next_action",
+            "route": "model",
+            "baseline_input_tokens": 2000,
+            "baseline_output_tokens": 500,
+            "measured_frontier_tokens": 900,
+            "outcome": {"verified_success": True, "verification_source": "tests"},
+            "ts": now,
+        }
+    )
+    ev.measurement_source = MeasurementSourceRef(measurement_state="complete")
+    report = build_savings_report([ev], range_spec="all", now=now + 1)
+    assert report["totals"]["authoritative"] is True
+    assert report["totals"]["measurement_state"] == "complete"
+    assert report["totals"]["measured_tokens_avoided_authoritative"] == 1600
+    assert report["totals"]["measured_tokens_avoided_provisional"] == 0
+    assert report["verified_outcomes"]["authoritative"] is True
+    assert report["verified_outcomes"]["authoritative_tokens_per_verified_task"] is not None
+
+
+def test_legacy_measured_savings_stay_numeric_but_provisional():
+    now = time.time()
+    ev = from_z0int_receipt(
+        {
+            "schema": "z0int.decision_receipt.v1",
+            "trace_id": _tid(32),
+            "capability_id": "coding.next_action",
+            "route": "model",
+            "baseline_input_tokens": 2000,
+            "baseline_output_tokens": 500,
+            "measured_frontier_tokens": 900,
+            "ts": now,
+        }
+    )
+    report = build_savings_report([ev], range_spec="all", now=now + 1)
+    assert report["totals"]["measured_tokens_avoided"] == 1600
+    assert report["totals"]["measured_tokens_avoided_authoritative"] == 0
+    assert report["totals"]["measured_tokens_avoided_provisional"] == 1600
+    assert report["totals"]["measurement_state"] == "unknown"
+    assert report["totals"]["authoritative"] is False
+
+
 def test_report_never_collapses_tiers():
     now = time.time()
     rows = [
@@ -144,3 +213,17 @@ def test_adapter_does_not_put_estimate_into_measured_field():
     assert ev.economics is not None
     assert ev.economics.estimated_tokens_avoided == 1234
     assert ev.economics.measured_tokens_avoided is None
+
+
+
+def test_incomplete_prepare_measurement_mints_no_baseline_or_savings():
+    ev = TokenomicsEvent(
+        kind="prepare",
+        name="prepare.consume",
+        economics=Economics(
+            prepare_outcome="prepare_consumed",
+            measured_tokens_avoided=500,
+        ),
+        measurement_source=MeasurementSourceRef(measurement_state="failed"),
+    )
+    assert classify_savings(ev) == ("unknown", 0, 0, 0)

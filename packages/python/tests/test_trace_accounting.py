@@ -11,7 +11,7 @@ from tokenomics.adapters import (
     from_omp_session_aggregate,
     from_z0int_receipt,
 )
-from tokenomics.models import Economics, Outcome, TokenUsage, TokenomicsEvent
+from tokenomics.models import Economics, MeasurementSourceRef, Outcome, TokenUsage, TokenomicsEvent
 from tokenomics.trace_accounting import assert_no_double_count, rollup_trace, rollup_traces
 
 
@@ -137,6 +137,53 @@ def test_paired_baseline_upgrades_to_measured():
     assert r.baseline == "paired_measured"
     assert r.measurement_level == "M3"
     assert r.tokens_avoided == 1600
+    assert r.measurement_state == "unknown"
+    assert r.authoritative is False
+
+
+def test_explicit_partial_actual_cannot_mint_measured_savings():
+    ev = from_z0int_receipt(
+        {
+            "schema": "z0int.decision_receipt.v1",
+            "trace_id": _tid(51),
+            "capability_id": "coding.next_action",
+            "route": "model",
+            "baseline_input_tokens": 2000,
+            "baseline_output_tokens": 500,
+            "measured_frontier_tokens": 900,
+            "ts": time.time(),
+        }
+    )
+    ev.measurement_source = MeasurementSourceRef(measurement_state="partial")
+    r = rollup_trace([ev])
+    assert r.actual_frontier_tokens == 900
+    assert r.tokens_avoided == 0
+    assert r.savings_tier == "unknown"
+    assert r.measurement_level == "M2"
+    assert r.measurement_state == "partial"
+    assert r.authoritative is False
+
+
+def test_complete_actual_keeps_measured_savings_and_is_authoritative():
+    ev = from_z0int_receipt(
+        {
+            "schema": "z0int.decision_receipt.v1",
+            "trace_id": _tid(52),
+            "capability_id": "coding.next_action",
+            "route": "model",
+            "baseline_input_tokens": 2000,
+            "baseline_output_tokens": 500,
+            "measured_frontier_tokens": 900,
+            "ts": time.time(),
+        }
+    )
+    ev.measurement_source = MeasurementSourceRef(measurement_state="complete")
+    r = rollup_trace([ev])
+    assert r.tokens_avoided == 1600
+    assert r.savings_tier == "measured"
+    assert r.measurement_level == "M3"
+    assert r.measurement_state == "complete"
+    assert r.authoritative is True
 
 
 def test_kerdoios_placement_cannot_mint_savings():

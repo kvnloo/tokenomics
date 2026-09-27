@@ -20,7 +20,12 @@ from .adapters import (
     from_omp_session_aggregate,
     from_z0int_receipt,
 )
-from .aggregate import summarize_traces, tokens_per_verified_task
+from .aggregate import (
+    aggregate_measurement_state,
+    event_measurement_state,
+    summarize_traces,
+    tokens_per_verified_task,
+)
 from .models import TokenomicsEvent
 
 REPORT_SCHEMA = "tokenomics.report.v1"
@@ -103,6 +108,17 @@ def _measured_frontier(ev: TokenomicsEvent) -> int | None:
 
 
 
+def _measurement_relevant(ev: TokenomicsEvent) -> bool:
+    return bool(
+        ev.usage
+        or ev.economics
+        or ev.quota_before
+        or ev.quota_after
+        or _baseline_tokens(ev) is not None
+        or (ev.measurement_source and ev.measurement_source.measurement_state)
+    )
+
+
 def _actual_tokens(ev: TokenomicsEvent) -> int:
     """Tokens actually spent on frontier (0 if fully offloaded/local).
 
@@ -139,12 +155,16 @@ def classify_savings(ev: TokenomicsEvent) -> tuple[SavingsTier, int, int, int]:
     """
     if _is_aggregate_usage(ev):
         return "unknown", 0, 0, 0
+    measurement_state = event_measurement_state(ev)
+    explicit_incomplete = measurement_state in {"partial", "failed", "unsupported"}
     econ = ev.economics
     if econ and econ.prepare_outcome:
         outcome = econ.prepare_outcome
         if outcome != "prepare_consumed":
             return "unknown", 0, 0, 0
         if econ.measured_tokens_avoided and econ.measured_tokens_avoided > 0:
+            if explicit_incomplete:
+                return "unknown", 0, 0, 0
             return "measured", int(econ.measured_tokens_avoided), 0, int(econ.measured_tokens_avoided)
         return "unknown", 0, 0, 0
 
@@ -157,6 +177,10 @@ def classify_savings(ev: TokenomicsEvent) -> tuple[SavingsTier, int, int, int]:
         avoided = max(0, base - measured)
         if meas_av is not None:
             avoided = max(0, meas_av)
+        if explicit_incomplete:
+            if est is not None and est > 0:
+                return "estimated", base, measured, est
+            return "unknown", base, measured, 0
         return "measured", base, measured, avoided
 
     if est is not None and est > 0:
@@ -411,6 +435,8 @@ def _build_reconciliation(
             "verifier_tokens": sum(s.verifier_tokens for s in trace_summaries),
         },
         "n_traces_with_usage": len(trace_summaries),
+        "authoritative": bool(trace_summaries) and all(s.authoritative for s in trace_summaries),
+        "measurement_state_counts": dict(Counter(s.measurement_state for s in trace_summaries)),
     }
 
 
@@ -455,6 +481,10 @@ def build_savings_report(
     n_measured = 0
     n_estimated = 0
     n_unknown = 0
+    authoritative_measured_avoided = 0
+    provisional_measured_avoided = 0
+    measurement_state_counts: Counter[str] = Counter()
+    explicit_incomplete_measurement_events = 0
 
     by_mech_avoided: Counter[str] = Counter()
     by_mech_actual: Counter[str] = Counter()
@@ -473,6 +503,11 @@ def build_savings_report(
     ts_est: dict[str, int] = defaultdict(int)
 
     for ev in rows:
+        state = event_measurement_state(ev)
+        if _measurement_relevant(ev):
+            measurement_state_counts[state] += 1
+            if state in {"partial", "failed", "unsupported"}:
+                explicit_incomplete_measurement_events += 1
         tier, base, actual, avoided = classify_savings(ev)
         by_tier[tier] += 1
         baseline_sum += base
@@ -484,6 +519,10 @@ def build_savings_report(
         if tier == "measured":
             n_measured += 1
             measured_avoided += avoided
+            if state == "complete":
+                authoritative_measured_avoided += avoided
+            else:
+                provisional_measured_avoided += avoided
             ts_meas[day] += avoided
         elif tier == "estimated":
             n_estimated += 1
@@ -509,6 +548,10 @@ def build_savings_report(
                 by_model_actual[str(ev.model.name)] += actual
         if ev.outcome is not None and ev.outcome.tier() == "gold":
             by_harness_verified[harness] += 1
+
+    measurement_rows = [e for e in rows if _measurement_relevant(e)]
+    report_measurement_state = aggregate_measurement_state(measurement_rows)
+    report_authoritative = bool(measurement_rows) and report_measurement_state == "complete"
 
     verified_stats = tokens_per_verified_task(rows)
     # Baseline tokens / verified uses sum of baselines on gold traces when available
@@ -787,8 +830,12 @@ def build_savings_report(
         "totals": {
             "baseline_tokens": int(baseline_sum),
             "actual_frontier_tokens": int(actual_sum),
+            "measurement_state": report_measurement_state,
+            "authoritative": report_authoritative,
             # Split is mandatory — never a single collapsed "saved" headline field.
             "measured_tokens_avoided": int(measured_avoided),
+            "measured_tokens_avoided_authoritative": int(authoritative_measured_avoided),
+            "measured_tokens_avoided_provisional": int(provisional_measured_avoided),
             "estimated_tokens_avoided": int(estimated_avoided),
             "unknown_or_no_baseline_tokens": int(unknown_baseline_tokens),
             "tokens_avoided_sum_for_display_only": int(total_avoided_display),
@@ -796,7 +843,12 @@ def build_savings_report(
         },
         "savings": {
             "tiers": {
-                "measured": {"events": n_measured, "tokens_avoided": int(measured_avoided)},
+                "measured": {
+                    "events": n_measured,
+                    "tokens_avoided": int(measured_avoided),
+                    "authoritative_tokens_avoided": int(authoritative_measured_avoided),
+                    "provisional_tokens_avoided": int(provisional_measured_avoided),
+                },
                 "estimated": {"events": n_estimated, "tokens_avoided": int(estimated_avoided)},
                 "unknown": {"events": n_unknown, "tokens_observed_without_baseline": int(unknown_baseline_tokens)},
             },
@@ -804,7 +856,12 @@ def build_savings_report(
         },
         "verified_outcomes": {
             "verified_tasks": gold_n,
+            "measurement_state": verified_stats.get("measurement_state"),
+            "authoritative": bool(verified_stats.get("authoritative")),
             "tokens_per_verified_task": actual_per_verified,
+            "authoritative_tokens_per_verified_task": verified_stats.get(
+                "authoritative_tokens_per_verified_task"
+            ),
             "baseline_tokens_per_verified_task": baseline_per_verified,
             "reduction_per_verified": (
                 round(1.0 - (float(actual_per_verified) / float(baseline_per_verified)), 4)
@@ -830,6 +887,10 @@ def build_savings_report(
             "unknown_attribution_events": sum(
                 1 for e in rows if e.usage is not None and _usage_attribution(e) == "unknown"
             ),
+            "measurement_state_event_counts": dict(measurement_state_counts),
+            "explicit_incomplete_measurement_events": explicit_incomplete_measurement_events,
+            "report_measurement_state": report_measurement_state,
+            "authoritative": report_authoritative,
         },
         "prepare_funnel": prepare_funnel,
         "reconciliation": reconciliation,
@@ -870,9 +931,13 @@ def format_savings_text(report: dict[str, Any]) -> str:
         "",
         "Frontier work",
         "────────────────────────────────────────",
+        f"Measurement coverage         {tot.get('measurement_state', 'unknown')}"
+        f"{' (authoritative)' if tot.get('authoritative') else ' (observed/provisional)'}",
         f"Baseline tokens              {_fmt_tok(tot['baseline_tokens'])}",
-        f"Actual frontier tokens       {_fmt_tok(tot['actual_frontier_tokens'])}",
+        f"Observed frontier tokens     {_fmt_tok(tot['actual_frontier_tokens'])}",
         f"Measured tokens avoided      {_fmt_tok(sav['measured']['tokens_avoided'])}",
+        f"  authoritative              {_fmt_tok(sav['measured'].get('authoritative_tokens_avoided'))}",
+        f"  provisional                {_fmt_tok(sav['measured'].get('provisional_tokens_avoided'))}",
         f"Estimated tokens avoided     {_fmt_tok(sav['estimated']['tokens_avoided'])}",
         f"Unknown / no baseline        {_fmt_tok(tot['unknown_or_no_baseline_tokens'])}",
         "",

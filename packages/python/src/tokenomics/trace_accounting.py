@@ -10,6 +10,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Iterable, Literal
 
+from .aggregate import aggregate_measurement_state, has_explicit_incomplete_measurement
 from .models import TokenomicsEvent
 
 MeasurementLevel = Literal["M0", "M1", "M2", "M3"]
@@ -160,6 +161,8 @@ class TraceFrontierRollup:
     reconciliation_delta: int | None
     event_count: int
     verified: bool
+    measurement_state: str
+    authoritative: bool
 
 
 def rollup_trace(events: list[TokenomicsEvent]) -> TraceFrontierRollup:
@@ -203,8 +206,19 @@ def rollup_trace(events: list[TokenomicsEvent]) -> TraceFrontierRollup:
     )
 
     est_avoided_vals = [v for v in (_estimated_avoided(e) for e in rows) if v is not None]
+    measurement_rows = [
+        e
+        for e in rows
+        if e.usage is not None
+        or _measured_frontier_from_event(e) is not None
+        or _baseline_from_event(e) is not None
+    ]
+    if not measurement_rows:
+        measurement_rows = rows
+    measurement_state = aggregate_measurement_state(measurement_rows)
+    explicit_incomplete = has_explicit_incomplete_measurement(measurement_rows)
 
-    if paired and baseline_total is not None:
+    if paired and baseline_total is not None and not explicit_incomplete:
         baseline_class: BaselineClass = "paired_measured"
         avoided = max(0, int(baseline_total) - int(actual))
         tier: Literal["measured", "estimated", "unknown"] = "measured"
@@ -214,6 +228,11 @@ def rollup_trace(events: list[TokenomicsEvent]) -> TraceFrontierRollup:
         avoided = int(max(est_avoided_vals))
         tier = "estimated"
         level = "M1"
+    elif paired and baseline_total is not None and explicit_incomplete:
+        baseline_class = "paired_measured"
+        avoided = 0
+        tier = "unknown"
+        level = "M2"
     elif baseline_total is not None and actual_class in {"incremental", "zero_local", "aggregate_only"}:
         baseline_class = "missing"
         avoided = 0
@@ -248,6 +267,8 @@ def rollup_trace(events: list[TokenomicsEvent]) -> TraceFrontierRollup:
         reconciliation_delta=reconciliation,
         event_count=len(rows),
         verified=outcome == "verified",
+        measurement_state=measurement_state,
+        authoritative=measurement_state == "complete",
     )
 
 

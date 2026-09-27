@@ -83,6 +83,15 @@ For logical grouping, prefer an opaque provider-native account/workspace identif
 
 Measurement state is independent from event execution status. A successful task can carry a failed telemetry read, and a sparse provider update can contain real values while remaining partial. Presence of numbers must never be treated as implicit completeness.
 
+### Completeness-aware aggregation
+
+Aggregators preserve observed nonnegative usage and cost even when coverage is incomplete, but they expose whether the result is authoritative.
+
+- explicit `complete` contributors can produce authoritative totals;
+- `partial`, `failed`, and `unsupported` contributors keep observed values but cannot mint measured savings from missing actual work;
+- legacy events with no state keep backward-compatible numeric totals, reported as `unknown` / non-authoritative;
+- verified-task economics expose observed values separately from authoritative values.
+
 ## Quick start: Python
 
 ```bash
