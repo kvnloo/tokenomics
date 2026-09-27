@@ -22,8 +22,22 @@ The durable JSONL record remains backend-neutral. OTLP/Phoenix/Langfuse are proj
 `measurement_source` separates observer, logical source, and physical source identity.
 
 - `observer_id` is the runtime/environment that observed or emitted a record.
-- `logical_source_id` is the provider account, quota pool, session, or other domain identity used for grouping.
+- `logical_source_id` is the provider account, quota pool, session, or other domain identity used for grouping. Prefer a stable provider-native opaque id when one exists; do not substitute email addresses, plan names, organization display names, or other mutable labels.
 - `physical_source_id` is an explicit adapter assertion for the underlying measurement source. It is the only generic identity Tokenomics describes as safe for cross-observer dedupe.
 - `identity_basis` records how that identity was established (`provider`, `storage`, `operator`, `derived`, or `unknown`).
 
 Missing `physical_source_id` means physical equivalence is unknown, not that the source is unique. Core never infers physical equivalence from matching path strings, hostnames, session/content overlap, or logical source ids. Platform/provider adapters own those assertions.
+
+
+### Logical source identity rules
+
+`logical_source_id` is grouping identity, not display metadata.
+
+- Prefer provider-native stable ids such as a workspace/account UUID.
+- Scope ids by provider/domain in the adapter so unrelated providers cannot collide.
+- Email, plan/tier names, organization names, and model-provider labels are fallback evidence, not durable logical ids.
+- Two observations with the same email but different stable logical ids are different sources.
+- A missing logical id means identity is unresolved; it must not be guessed from a mutable label.
+- Adapters may keep display metadata separately in attributes or provider-native fields.
+
+For example, an adapter may map a ChatGPT workspace account id or an Anthropic organization UUID into `logical_source_id`, while retaining the email/plan/org name only for display. Tokenomics core does not define provider-specific extraction logic.

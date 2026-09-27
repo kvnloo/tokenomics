@@ -26,7 +26,7 @@ groups:
         brief: Runtime or environment that observed or emitted the measurement; not a dedupe key by itself.
       - id: tokenomics.measurement.logical_source_id
         type: string
-        brief: Provider account, quota pool, session, or other domain source used for grouping.
+        brief: Stable provider-native account, workspace, quota pool, session, or other domain source used for grouping; mutable display labels are not durable identity.
       - id: tokenomics.measurement.physical_source_id
         type: string
         brief: Explicit adapter assertion identifying the underlying measurement source safe to dedupe across observers.
