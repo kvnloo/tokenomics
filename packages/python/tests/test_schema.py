@@ -4,7 +4,7 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 
-from tokenomics import Experiment, Outcome, TokenomicsEvent
+from tokenomics import Experiment, MeasurementSourceRef, Outcome, TokenomicsEvent
 
 ROOT = Path(__file__).resolve().parents[3]
 SCHEMAS = ROOT / "spec/schemas"
@@ -21,6 +21,12 @@ def test_event_schema_accepts_sdk_output_with_nested_refs():
     event = TokenomicsEvent(
         kind="task",
         name="x",
+        measurement_source=MeasurementSourceRef(
+            observer_id="desktop-wsl",
+            logical_source_id="claude-account-a",
+            physical_source_id="host-a:claude-store",
+            identity_basis="storage",
+        ),
         experiment=Experiment(
             experiment_id="e",
             arm_id="a",
