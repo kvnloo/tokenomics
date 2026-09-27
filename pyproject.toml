@@ -43,6 +43,9 @@ all = [
 [project.scripts]
 tokenomics = "tokenomics.cli:main"
 
+[project.entry-points."hermes_agent.plugins"]
+tokenomics = "tokenomics.hermes_plugin:register"
+
 [tool.setuptools]
 package-dir = {"" = "packages/python/src"}
 
