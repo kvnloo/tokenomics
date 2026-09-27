@@ -60,3 +60,39 @@ groups:
       - id: tokenomics.experiment.treatment_hash
         type: string
         brief: Stable fingerprint for model/prompt/context/tool treatment.
+      - id: tokenomics.experiment.parent_example_id
+        type: string
+        brief: Parent example identifier for derived or curated examples.
+      - id: tokenomics.experiment.contrast_group_id
+        type: string
+        brief: Identifier grouping contrastive examples from the same source case.
+      - id: tokenomics.experiment.source_family_id
+        type: string
+        brief: Source-family identifier used to preserve curation lineage.
+      - id: tokenomics.experiment.intervention_kind
+        type: string
+        brief: Kind of curation intervention, such as relevant_edit, evidence_delete, or invariant_control.
+      - id: tokenomics.experiment.supervision_kind
+        type: string
+        brief: Provenance class for supervision; it does not imply verified outcome quality.
+      - id: tokenomics.experiment.acceptance_status
+        type: string
+        brief: Curation-gate disposition such as accepted, rejected, or partial; never equivalent to verified_success.
+      - id: tokenomics.experiment.rejection_stage
+        type: string
+        brief: Stage at which a curated candidate was rejected.
+      - id: tokenomics.experiment.gate_revision
+        type: string
+        brief: Revision of the curation/evaluation gate that produced the disposition.
+      - id: tokenomics.experiment.reuse_kind
+        type: string
+        brief: Whether evidence came from fresh execution, cache reuse, or offline replay.
+      - id: tokenomics.experiment.original_event_ref
+        type: string
+        brief: Reference to the original measured event when a derived example is replayed or curated.
+      - id: tokenomics.experiment.evaluation_cohort
+        type: string
+        brief: Named evaluation cohort used to keep comparison populations explicit.
+      - id: tokenomics.experiment.production_credit_eligible
+        type: boolean
+        brief: Whether this measurement may contribute to production credit; curation acceptance alone must not set this true.
