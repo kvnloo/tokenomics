@@ -71,11 +71,13 @@ This lets an OMP trace contain root + RLM worker calls and also a final provider
 `measurement_source` keeps provenance and dedupe identity separate:
 
 - `observer_id`: runtime/environment that observed the measurement.
-- `logical_source_id`: account, quota pool, session, or other grouping identity.
+- `logical_source_id`: stable provider-native account, workspace, quota pool, session, or other grouping identity when available. Do not use email, plan names, or other mutable display labels as a durable id.
 - `physical_source_id`: explicit adapter assertion that two observations came from the same underlying measurement source.
 - `identity_basis`: how the identity was established.
 
 Only an explicit `physical_source_id` is generally safe for cross-observer dedupe. Same hostname, path text, logical account, or overlapping sessions are not sufficient evidence.
+
+For logical grouping, prefer an opaque provider-native account/workspace identifier. Email, plan/tier labels, and organization display names are useful metadata but are not stable account identity when one login can belong to multiple subscriptions or organizations.
 
 ## Quick start: Python
 
