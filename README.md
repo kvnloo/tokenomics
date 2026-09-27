@@ -145,6 +145,16 @@ await recorder.record(makeEvent({
 }));
 ```
 
+## Hermes Agent plugin
+
+The Python package exposes a native Hermes plugin through the `hermes_agent.plugins` entry-point group. Hermes discovers it as `tokenomics`; it remains disabled until the user enables it through Hermes' normal plugin configuration.
+
+When enabled, the plugin listens to the documented `post_api_request` / legacy `post_llm_call` hooks and records only provider-confirmed usage metadata. It never records prompt/completion content, tool arguments/results, credentials, account labels, or raw profile paths.
+
+Provider-confirmed call usage is emitted with `measurement_state=complete`. A hook invocation with no usage emits nothing because absence alone cannot distinguish `failed` from `unsupported`.
+
+By default the plugin writes to the active Hermes profile's `tokenomics/events.jsonl`; set `TOKENOMICS_JSONL` to choose another path.
+
 ## OpenTelemetry / Phoenix
 
 Python has an optional OTLP sink:

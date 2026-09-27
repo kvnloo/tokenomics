@@ -43,7 +43,18 @@ jobs:
       - run: |
           python -m venv /tmp/tokenomics-wheel
           /tmp/tokenomics-wheel/bin/pip install dist/*.whl
-          /tmp/tokenomics-wheel/bin/python -c "import tokenomics; assert tokenomics.__version__ == '0.1.0'"
+          /tmp/tokenomics-wheel/bin/python - <<'PY'
+          import importlib.metadata
+          import tokenomics
+          assert tokenomics.__version__ == "0.1.0"
+          eps = importlib.metadata.entry_points()
+          group = list(eps.select(group="hermes_agent.plugins"))
+          assert any(
+              ep.name == "tokenomics"
+              and ep.value == "tokenomics.hermes_plugin:register"
+              for ep in group
+          )
+          PY
       - uses: actions/setup-node@v6
         with:
           node-version: "24"
