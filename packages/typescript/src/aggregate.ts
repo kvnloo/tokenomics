@@ -1,6 +1,22 @@
 import { outcomeTier } from "./outcome.js";
 import { usageTotal, type TokenomicsEvent } from "./types.js";
 
+function eventMeasurementState(event: TokenomicsEvent): string {
+  return event.measurement_source?.measurement_state ?? "unknown";
+}
+
+function aggregateMeasurementState(events: TokenomicsEvent[]): string {
+  const states = events.map(eventMeasurementState);
+  if (!states.length) return "unknown";
+  if (states.includes("failed")) return "failed";
+  if (states.includes("partial")) return "partial";
+  if (states.includes("unsupported")) {
+    return states.every(state => state === "unsupported") ? "unsupported" : "partial";
+  }
+  if (states.includes("unknown")) return "unknown";
+  return states.every(state => state === "complete") ? "complete" : "unknown";
+}
+
 export interface TraceSummary {
   trace_id: string;
   event_count: number;
@@ -18,6 +34,8 @@ export interface TraceSummary {
   verifier_tokens: number;
   aggregate_reported_tokens?: number;
   reconciliation_delta?: number;
+  measurement_state: string;
+  authoritative: boolean;
 }
 
 export function summarizeTrace(events: TokenomicsEvent[]): TraceSummary {
@@ -30,6 +48,8 @@ export function summarizeTrace(events: TokenomicsEvent[]): TraceSummary {
   const tiers = events.map(e => outcomeTier(e.outcome));
   const tier = tiers.includes("negative") ? "negative" : tiers.includes("gold") ? "gold" : tiers.includes("execution") ? "execution" : tiers.includes("soft") ? "soft" : "unknown";
   const reported = aggregate.length ? usageTotal(aggregate.at(-1)?.usage) : undefined;
+  const measurementRows = incremental.length ? incremental : aggregate;
+  const measurementState = aggregateMeasurementState(measurementRows);
   return {
     trace_id: events[0]!.trace_id,
     event_count: events.length,
@@ -47,6 +67,8 @@ export function summarizeTrace(events: TokenomicsEvent[]): TraceSummary {
     verifier_tokens: byRole("verifier"),
     aggregate_reported_tokens: reported,
     reconciliation_delta: reported === undefined ? undefined : reported-total,
+    measurement_state: measurementState,
+    authoritative: measurementState === "complete",
   };
 }
 

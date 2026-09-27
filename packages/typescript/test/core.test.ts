@@ -50,6 +50,54 @@ test("trace aggregation does not double-count aggregate event", () => {
   assert.equal(summary.verified, true);
 });
 
+test("trace totals keep partial observations without claiming authority", () => {
+  const trace = "2".repeat(32);
+  const root = makeEvent({
+    kind: "llm",
+    name: "root",
+    trace_id: trace,
+    role: "root",
+    usage: { input_tokens: 10, output_tokens: 1, attribution: "incremental", source: "provider" },
+    measurement_source: { measurement_state: "partial" },
+  });
+  const worker = makeEvent({
+    kind: "llm",
+    name: "worker",
+    trace_id: trace,
+    role: "rlm_worker",
+    usage: { input_tokens: 5, output_tokens: 1, attribution: "incremental", source: "provider" },
+    measurement_source: { measurement_state: "complete" },
+  });
+  const summary = summarizeTrace([root, worker]);
+  assert.equal(summary.total_tokens, 17);
+  assert.equal(summary.measurement_state, "partial");
+  assert.equal(summary.authoritative, false);
+});
+
+test("complete trace totals are authoritative while legacy totals remain provisional", () => {
+  const completeTrace = "3".repeat(32);
+  const complete = makeEvent({
+    kind: "llm",
+    name: "root",
+    trace_id: completeTrace,
+    usage: { input_tokens: 10, output_tokens: 1, attribution: "incremental", source: "provider" },
+    measurement_source: { measurement_state: "complete" },
+  });
+  assert.equal(summarizeTrace([complete]).authoritative, true);
+
+  const legacyTrace = "4".repeat(32);
+  const legacy = makeEvent({
+    kind: "llm",
+    name: "root",
+    trace_id: legacyTrace,
+    usage: { input_tokens: 10, output_tokens: 1, attribution: "incremental", source: "provider" },
+  });
+  const legacySummary = summarizeTrace([legacy]);
+  assert.equal(legacySummary.total_tokens, 11);
+  assert.equal(legacySummary.measurement_state, "unknown");
+  assert.equal(legacySummary.authoritative, false);
+});
+
 test("measurement state is independent from event execution status", () => {
   const event = makeEvent({
     kind: "quota",
