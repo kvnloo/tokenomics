@@ -25,6 +25,7 @@ EventStatus = Literal["ok", "error", "cancelled", "unknown"]
 ExecutionRole = Literal["root", "rlm_worker", "subagent", "verifier", "router", "other"]
 UsageAttribution = Literal["incremental", "aggregate", "unknown"]
 UsageSource = Literal["provider", "estimated", "derived", "unknown"]
+MeasurementIdentityBasis = Literal["provider", "storage", "operator", "derived", "unknown"]
 OutcomeTier = Literal["gold", "negative", "execution", "soft", "unknown"]
 
 GOLD_SIGNALS = (
@@ -63,6 +64,20 @@ class ModelRef:
     role: str | None = None
     origin_provider: str | None = None
     revision: str | None = None
+
+
+@dataclass(frozen=True)
+class MeasurementSourceRef:
+    """Identity layers for one measured source.
+
+    Only physical_source_id is a generic cross-observer dedupe assertion.
+    observer_id and logical_source_id remain grouping/provenance fields.
+    """
+
+    observer_id: str | None = None
+    logical_source_id: str | None = None
+    physical_source_id: str | None = None
+    identity_basis: MeasurementIdentityBasis | None = None
 
 
 @dataclass(frozen=True)
@@ -233,6 +248,7 @@ class TokenomicsEvent:
     capability_id: str | None = None
     harness: str | None = None
     service: str | None = None
+    measurement_source: MeasurementSourceRef | None = None
     role: ExecutionRole = "other"
     status: EventStatus = "unknown"
     model: ModelRef | None = None
@@ -278,6 +294,7 @@ class TokenomicsEvent:
             raise ValueError(f"unsupported schema: {raw.get('schema')}")
         nested = {
             "model": ModelRef,
+            "measurement_source": MeasurementSourceRef,
             "usage": TokenUsage,
             "economics": Economics,
             "latency": Latency,

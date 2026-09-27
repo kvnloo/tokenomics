@@ -66,6 +66,17 @@ Ambient `turn_end` / `agent_end` events cannot mint gold without a `verification
 
 This lets an OMP trace contain root + RLM worker calls and also a final provider/session usage total without counting both.
 
+### Measurement source identity
+
+`measurement_source` keeps provenance and dedupe identity separate:
+
+- `observer_id`: runtime/environment that observed the measurement.
+- `logical_source_id`: account, quota pool, session, or other grouping identity.
+- `physical_source_id`: explicit adapter assertion that two observations came from the same underlying measurement source.
+- `identity_basis`: how the identity was established.
+
+Only an explicit `physical_source_id` is generally safe for cross-observer dedupe. Same hostname, path text, logical account, or overlapping sessions are not sufficient evidence.
+
 ## Quick start: Python
 
 ```bash

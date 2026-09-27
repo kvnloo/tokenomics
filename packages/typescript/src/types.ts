@@ -7,6 +7,7 @@ export type EventStatus = "ok" | "error" | "cancelled" | "unknown";
 export type ExecutionRole = "root" | "rlm_worker" | "subagent" | "verifier" | "router" | "other";
 export type UsageAttribution = "incremental" | "aggregate" | "unknown";
 export type UsageSource = "provider" | "estimated" | "derived" | "unknown";
+export type MeasurementIdentityBasis = "provider" | "storage" | "operator" | "derived" | "unknown";
 export type OutcomeTier = "gold" | "negative" | "execution" | "soft" | "unknown";
 
 export interface ModelRef {
@@ -15,6 +16,17 @@ export interface ModelRef {
   role?: string;
   origin_provider?: string;
   revision?: string;
+}
+
+export interface MeasurementSourceRef {
+  /** Runtime/environment that observed or emitted the measurement. Never a dedupe key by itself. */
+  observer_id?: string;
+  /** Provider account, quota pool, session, or other domain source used for grouping. */
+  logical_source_id?: string;
+  /** Explicit adapter assertion for the underlying source safe to dedupe across observers. */
+  physical_source_id?: string;
+  /** How the identity was established; provenance, not a confidence score. */
+  identity_basis?: MeasurementIdentityBasis;
 }
 
 export interface TokenUsage {
@@ -114,6 +126,7 @@ export interface TokenomicsEvent {
   capability_id?: string;
   harness?: string;
   service?: string;
+  measurement_source?: MeasurementSourceRef;
   role: ExecutionRole;
   status: EventStatus;
   model?: ModelRef;

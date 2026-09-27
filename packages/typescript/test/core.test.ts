@@ -50,15 +50,50 @@ test("trace aggregation does not double-count aggregate event", () => {
   assert.equal(summary.verified, true);
 });
 
+test("physical measurement identity is explicit across observers", () => {
+  const first = makeEvent({
+    kind: "llm",
+    name: "observer-a",
+    measurement_source: {
+      observer_id: "runtime-a",
+      logical_source_id: "account-a",
+      physical_source_id: "host-a:store-1",
+      identity_basis: "storage",
+    },
+  });
+  const second = makeEvent({
+    kind: "llm",
+    name: "observer-b",
+    measurement_source: {
+      observer_id: "runtime-b",
+      logical_source_id: "account-a",
+      physical_source_id: "host-a:store-1",
+      identity_basis: "storage",
+    },
+  });
+  assert.notEqual(first.measurement_source?.observer_id, second.measurement_source?.observer_id);
+  assert.equal(first.measurement_source?.physical_source_id, second.measurement_source?.physical_source_id);
+});
+
 test("OTel mapping uses standard GenAI token attributes", () => {
   const event = makeEvent({
     kind: "llm", name: "root", role: "root",
     model: { provider: "openai", name: "gpt-x" },
     usage: { input_tokens: 42, output_tokens: 5, source: "provider" },
+    measurement_source: {
+      observer_id: "desktop-wsl",
+      logical_source_id: "claude-account-a",
+      physical_source_id: "host-a:claude-store",
+      identity_basis: "storage",
+    },
     context: { policy: "rlm-search", granted_bytes: 1024 },
   });
   const attrs = toOtelAttributes(event);
   assert.equal(attrs["gen_ai.usage.input_tokens"], 42);
+  assert.equal(attrs["tokenomics.measurement.observer_id"], "desktop-wsl");
+  assert.equal(attrs["tokenomics.measurement.logical_source_id"], "claude-account-a");
+  assert.equal(attrs["tokenomics.measurement.physical_source_id"], "host-a:claude-store");
+  assert.equal(attrs["tokenomics.measurement.identity_basis"], "storage");
   assert.equal(attrs["tokenomics.context.granted_bytes"], 1024);
 });
 

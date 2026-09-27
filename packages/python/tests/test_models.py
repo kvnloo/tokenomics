@@ -1,4 +1,4 @@
-from tokenomics import Outcome, TokenUsage, TokenomicsEvent
+from tokenomics import MeasurementSourceRef, Outcome, TokenUsage, TokenomicsEvent
 
 
 def test_gold_requires_verification_signal():
@@ -22,7 +22,28 @@ def test_usage_total_prefers_reported_total():
 
 
 def test_event_roundtrip():
-    event = TokenomicsEvent(kind="llm", name="call", usage=TokenUsage(input_tokens=10, output_tokens=2))
+    event = TokenomicsEvent(
+        kind="llm",
+        name="call",
+        usage=TokenUsage(input_tokens=10, output_tokens=2),
+        measurement_source=MeasurementSourceRef(
+            observer_id="runtime-a",
+            logical_source_id="account-a",
+            physical_source_id="host-a:store-1",
+            identity_basis="storage",
+        ),
+    )
     got = TokenomicsEvent.from_dict(event.to_dict())
     assert got.trace_id == event.trace_id
     assert got.usage and got.usage.total() == 12
+    assert got.measurement_source == event.measurement_source
+
+
+def test_physical_identity_is_explicit_not_inferred_from_other_ids():
+    a = MeasurementSourceRef(observer_id="runtime-a", logical_source_id="account-a", physical_source_id="host-a:store-1", identity_basis="storage")
+    b = MeasurementSourceRef(observer_id="runtime-b", logical_source_id="account-a", physical_source_id="host-a:store-1", identity_basis="storage")
+    c = MeasurementSourceRef(observer_id="runtime-a", logical_source_id="account-a", physical_source_id="host-b:store-1", identity_basis="storage")
+    assert a.observer_id != b.observer_id
+    assert a.physical_source_id == b.physical_source_id
+    assert a.logical_source_id == c.logical_source_id
+    assert a.physical_source_id != c.physical_source_id

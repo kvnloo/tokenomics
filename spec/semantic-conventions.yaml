@@ -21,6 +21,18 @@ groups:
       - id: tokenomics.outcome.verification_source
         type: string
         brief: Independent source that verified task quality.
+      - id: tokenomics.measurement.observer_id
+        type: string
+        brief: Runtime or environment that observed or emitted the measurement; not a dedupe key by itself.
+      - id: tokenomics.measurement.logical_source_id
+        type: string
+        brief: Provider account, quota pool, session, or other domain source used for grouping.
+      - id: tokenomics.measurement.physical_source_id
+        type: string
+        brief: Explicit adapter assertion identifying the underlying measurement source safe to dedupe across observers.
+      - id: tokenomics.measurement.identity_basis
+        type: string
+        brief: Provenance class for how source identity was established; not a confidence score.
       - id: tokenomics.cost.usd
         type: double
         brief: Actual or provider-reported USD cost for this operation when known.

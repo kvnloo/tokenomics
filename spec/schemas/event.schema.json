@@ -136,6 +136,9 @@
     "extra": {
       "type": "object",
       "additionalProperties": true
+    },
+    "measurement_source": {
+      "$ref": "#/$defs/measurement_source"
     }
   },
   "additionalProperties": false,
@@ -363,6 +366,30 @@
         },
         "source": {
           "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "measurement_source": {
+      "type": "object",
+      "properties": {
+        "observer_id": {
+          "type": "string"
+        },
+        "logical_source_id": {
+          "type": "string"
+        },
+        "physical_source_id": {
+          "type": "string"
+        },
+        "identity_basis": {
+          "enum": [
+            "provider",
+            "storage",
+            "operator",
+            "derived",
+            "unknown"
+          ]
         }
       },
       "additionalProperties": false
