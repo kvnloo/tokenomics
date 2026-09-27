@@ -2,12 +2,13 @@
 
 `tokenomics.event.v0` is the durable domain record. It is intentionally smaller than a full observability product.
 
-The schema distinguishes five concepts that agent harnesses often collapse:
+The schema distinguishes six concepts that agent harnesses often collapse:
 
 - **execution status**: did the request/tool transport complete?
 - **verified outcome**: did an independent verifier establish quality?
 - **usage/economics**: what tokens, cost and latency were attributable to the operation?
 - **measurement identity**: who observed the measurement, what logical source it represents, and whether an adapter explicitly asserted a physical source safe for dedupe?
+- **measurement completeness**: whether the declared measurement scope is complete, partial, unsupported, failed, or unknown?
 - **context economics**: what evidence was externalized, granted and reintroduced?
 
 ## OpenTelemetry mapping
@@ -41,3 +42,23 @@ Missing `physical_source_id` means physical equivalence is unknown, not that the
 - Adapters may keep display metadata separately in attributes or provider-native fields.
 
 For example, an adapter may map a ChatGPT workspace account id or an Anthropic organization UUID into `logical_source_id`, while retaining the email/plan/org name only for display. Tokenomics core does not define provider-specific extraction logic.
+
+
+## Measurement completeness
+
+`measurement.completeness` is categorical provenance about coverage, not execution status and not a probability.
+
+- `complete`: the producer asserts the declared measurement scope was fully observed.
+- `partial`: usable evidence exists, but some declared scope is missing, unreadable, rejected, or otherwise incomplete.
+- `unsupported`: the source cannot produce this measurement by capability or contract.
+- `failed`: the source should be able to produce the measurement, but this observation attempt failed.
+- `unknown`: completeness has not been established.
+
+Hard invariants:
+
+- `status: "ok"` does not imply `measurement.completeness: "complete"`.
+- Missing completeness means unknown, never complete.
+- Failed measurements are not zero-valued measurements.
+- Unsupported measurements are not failed probes.
+- A partial observation may carry useful counters, but downstream merges, caches, and replays must preserve its partial state unless a later complete observation replaces it.
+- A derived or cached observation must not upgrade completeness without evidence covering the missing scope.

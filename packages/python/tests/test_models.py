@@ -1,4 +1,4 @@
-from tokenomics import MeasurementSourceRef, Outcome, TokenUsage, TokenomicsEvent
+from tokenomics import MeasurementSourceRef, MeasurementState, Outcome, TokenUsage, TokenomicsEvent
 
 
 def test_gold_requires_verification_signal():
@@ -47,3 +47,18 @@ def test_physical_identity_is_explicit_not_inferred_from_other_ids():
     assert a.physical_source_id == b.physical_source_id
     assert a.logical_source_id == c.logical_source_id
     assert a.physical_source_id != c.physical_source_id
+
+
+def test_measurement_completeness_is_independent_of_execution_status():
+    event = TokenomicsEvent(
+        kind="quota",
+        name="partial-read",
+        status="ok",
+        measurement=MeasurementState(completeness="partial", reason="one transcript unreadable"),
+    )
+    assert event.status == "ok"
+    assert event.measurement and event.measurement.completeness == "partial"
+
+
+def test_unsupported_and_failed_measurements_are_distinct():
+    assert MeasurementState(completeness="unsupported").completeness != MeasurementState(completeness="failed").completeness

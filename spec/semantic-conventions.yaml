@@ -33,6 +33,12 @@ groups:
       - id: tokenomics.measurement.identity_basis
         type: string
         brief: Provenance class for how source identity was established; not a confidence score.
+      - id: tokenomics.measurement.completeness
+        type: string
+        brief: Coverage state of the measurement: complete, partial, unsupported, failed, or unknown; independent of event execution status.
+      - id: tokenomics.measurement.reason
+        type: string
+        brief: Optional bounded explanation for incomplete, unsupported, failed, or unknown measurement coverage.
       - id: tokenomics.cost.usd
         type: double
         brief: Actual or provider-reported USD cost for this operation when known.

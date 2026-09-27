@@ -26,6 +26,7 @@ ExecutionRole = Literal["root", "rlm_worker", "subagent", "verifier", "router", 
 UsageAttribution = Literal["incremental", "aggregate", "unknown"]
 UsageSource = Literal["provider", "estimated", "derived", "unknown"]
 MeasurementIdentityBasis = Literal["provider", "storage", "operator", "derived", "unknown"]
+MeasurementCompleteness = Literal["complete", "partial", "unsupported", "failed", "unknown"]
 OutcomeTier = Literal["gold", "negative", "execution", "soft", "unknown"]
 
 GOLD_SIGNALS = (
@@ -78,6 +79,14 @@ class MeasurementSourceRef:
     logical_source_id: str | None = None
     physical_source_id: str | None = None
     identity_basis: MeasurementIdentityBasis | None = None
+
+
+@dataclass(frozen=True)
+class MeasurementState:
+    """Coverage state of a measurement, separate from event execution status."""
+
+    completeness: MeasurementCompleteness = "unknown"
+    reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -249,6 +258,7 @@ class TokenomicsEvent:
     harness: str | None = None
     service: str | None = None
     measurement_source: MeasurementSourceRef | None = None
+    measurement: MeasurementState | None = None
     role: ExecutionRole = "other"
     status: EventStatus = "unknown"
     model: ModelRef | None = None
@@ -295,6 +305,7 @@ class TokenomicsEvent:
         nested = {
             "model": ModelRef,
             "measurement_source": MeasurementSourceRef,
+            "measurement": MeasurementState,
             "usage": TokenUsage,
             "economics": Economics,
             "latency": Latency,

@@ -8,6 +8,7 @@ export type ExecutionRole = "root" | "rlm_worker" | "subagent" | "verifier" | "r
 export type UsageAttribution = "incremental" | "aggregate" | "unknown";
 export type UsageSource = "provider" | "estimated" | "derived" | "unknown";
 export type MeasurementIdentityBasis = "provider" | "storage" | "operator" | "derived" | "unknown";
+export type MeasurementCompleteness = "complete" | "partial" | "unsupported" | "failed" | "unknown";
 export type OutcomeTier = "gold" | "negative" | "execution" | "soft" | "unknown";
 
 export interface ModelRef {
@@ -27,6 +28,13 @@ export interface MeasurementSourceRef {
   physical_source_id?: string;
   /** How the identity was established; provenance, not a confidence score. */
   identity_basis?: MeasurementIdentityBasis;
+}
+
+export interface MeasurementState {
+  /** Coverage state of the measurement itself; independent of event execution status. */
+  completeness: MeasurementCompleteness;
+  /** Optional bounded explanation for non-complete or otherwise noteworthy coverage. */
+  reason?: string;
 }
 
 export interface TokenUsage {
@@ -127,6 +135,7 @@ export interface TokenomicsEvent {
   harness?: string;
   service?: string;
   measurement_source?: MeasurementSourceRef;
+  measurement?: MeasurementState;
   role: ExecutionRole;
   status: EventStatus;
   model?: ModelRef;

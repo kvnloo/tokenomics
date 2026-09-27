@@ -79,6 +79,12 @@ Only an explicit `physical_source_id` is generally safe for cross-observer dedup
 
 For logical grouping, prefer an opaque provider-native account/workspace identifier. Email, plan/tier labels, and organization display names are useful metadata but are not stable account identity when one login can belong to multiple subscriptions or organizations.
 
+### Measurement completeness
+
+`measurement.completeness` records whether the measurement itself is `complete`, `partial`, `unsupported`, `failed`, or `unknown`. This is separate from whether the surrounding event executed successfully.
+
+A successful scan can therefore emit usable counters with `status: "ok"` and `measurement.completeness: "partial"`. Consumers must preserve that state through cache/merge/replay; partial evidence must never silently become complete.
+
 ## Quick start: Python
 
 ```bash

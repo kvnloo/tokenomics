@@ -37,6 +37,9 @@ def to_otel_attributes(event: TokenomicsEvent) -> dict[str, str | int | float | 
         _put(attrs, "tokenomics.measurement.logical_source_id", event.measurement_source.logical_source_id)
         _put(attrs, "tokenomics.measurement.physical_source_id", event.measurement_source.physical_source_id)
         _put(attrs, "tokenomics.measurement.identity_basis", event.measurement_source.identity_basis)
+    if event.measurement:
+        _put(attrs, "tokenomics.measurement.completeness", event.measurement.completeness)
+        _put(attrs, "tokenomics.measurement.reason", event.measurement.reason)
 
     if event.model:
         _put(attrs, "gen_ai.provider.name", event.model.provider)

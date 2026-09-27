@@ -29,6 +29,10 @@ export function toOtelAttributes(event: TokenomicsEvent): Record<string, OtelAtt
     put(out, "tokenomics.measurement.physical_source_id", event.measurement_source.physical_source_id);
     put(out, "tokenomics.measurement.identity_basis", event.measurement_source.identity_basis);
   }
+  if (event.measurement) {
+    put(out, "tokenomics.measurement.completeness", event.measurement.completeness);
+    put(out, "tokenomics.measurement.reason", event.measurement.reason);
+  }
   if (event.model) {
     put(out, "gen_ai.provider.name", event.model.provider);
     put(out, "gen_ai.request.model", event.model.name);

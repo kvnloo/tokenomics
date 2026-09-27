@@ -139,6 +139,9 @@
     },
     "measurement_source": {
       "$ref": "#/$defs/measurement_source"
+    },
+    "measurement": {
+      "$ref": "#/$defs/measurement"
     }
   },
   "additionalProperties": false,
@@ -390,6 +393,28 @@
             "derived",
             "unknown"
           ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "measurement": {
+      "type": "object",
+      "required": [
+        "completeness"
+      ],
+      "properties": {
+        "completeness": {
+          "enum": [
+            "complete",
+            "partial",
+            "unsupported",
+            "failed",
+            "unknown"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 500
         }
       },
       "additionalProperties": false

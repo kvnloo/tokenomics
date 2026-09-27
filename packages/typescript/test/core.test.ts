@@ -75,6 +75,26 @@ test("physical measurement identity is explicit across observers", () => {
   assert.equal(first.measurement_source?.physical_source_id, second.measurement_source?.physical_source_id);
 });
 
+test("measurement completeness is independent of execution status", () => {
+  const event = makeEvent({
+    kind: "quota",
+    name: "partial-read",
+    status: "ok",
+    measurement: { completeness: "partial", reason: "one transcript unreadable" },
+  });
+  assert.equal(event.status, "ok");
+  assert.equal(event.measurement?.completeness, "partial");
+  const attrs = toOtelAttributes(event);
+  assert.equal(attrs["tokenomics.measurement.completeness"], "partial");
+  assert.equal(attrs["tokenomics.measurement.reason"], "one transcript unreadable");
+});
+
+test("unsupported and failed measurements remain distinct", () => {
+  const unsupported = makeEvent({ kind: "quota", name: "unsupported", measurement: { completeness: "unsupported" } });
+  const failed = makeEvent({ kind: "quota", name: "failed", measurement: { completeness: "failed" } });
+  assert.notEqual(unsupported.measurement?.completeness, failed.measurement?.completeness);
+});
+
 test("OTel mapping uses standard GenAI token attributes", () => {
   const event = makeEvent({
     kind: "llm", name: "root", role: "root",
