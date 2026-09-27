@@ -79,3 +79,70 @@ def test_hermes_adapter_preserves_provider_usage():
     assert e.usage.input_tokens == 800
     assert e.usage.cache_write_input_tokens == 10
     assert e.latency and e.latency.duration_ms == 950.0
+
+
+
+def test_adapters_preserve_flat_emitter_measurement_state():
+    z = from_z0int_receipt(
+        {
+            "trace_id": "1" * 32,
+            "capability_id": "coding.delegate",
+            "measurement_state": "partial",
+            "state_reason": "derived_input_only",
+            "logical_source_id": "route:z0",
+        }
+    )
+    assert z.measurement_source is not None
+    assert z.measurement_source.measurement_state == "partial"
+    assert z.measurement_source.state_reason == "derived_input_only"
+    assert z.measurement_source.logical_source_id == "route:z0"
+
+    k = from_kerdoios_observation(
+        {
+            "trace_id": "2" * 32,
+            "provider": "cerebras",
+            "model": "qwen",
+            "completed": True,
+            "input_tokens": 10,
+            "output_tokens": 2,
+            "measurement_state": "complete",
+            "identity_basis": "provider",
+        }
+    )
+    assert k.measurement_source is not None
+    assert k.measurement_source.measurement_state == "complete"
+    assert k.measurement_source.identity_basis == "provider"
+
+
+def test_provider_usage_prefers_nested_measurement_source_and_bounds_reason():
+    e = from_omp_provider_usage(
+        {
+            "trace_id": "3" * 32,
+            "provider": "anthropic",
+            "model": "claude",
+            "usage": {"input_tokens": 10, "output_tokens": 2},
+            "measurement_state": "failed",
+            "measurement_source": {
+                "measurement_state": "complete",
+                "logical_source_id": "account-a",
+                "state_reason": "x" * 700,
+            },
+        }
+    )
+    assert e.measurement_source is not None
+    assert e.measurement_source.measurement_state == "complete"
+    assert e.measurement_source.logical_source_id == "account-a"
+    assert len(e.measurement_source.state_reason or "") == 500
+
+
+def test_missing_or_invalid_emitter_state_remains_unknown():
+    e = from_hermes_provider_usage(
+        {
+            "trace_id": "4" * 32,
+            "provider": "openai",
+            "model": "gpt",
+            "usage": {"input_tokens": 1, "output_tokens": 1},
+            "measurement_state": "definitely-complete",
+        }
+    )
+    assert e.measurement_source is None

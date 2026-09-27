@@ -7,6 +7,7 @@ from .models import (
     Economics,
     Experiment,
     Latency,
+    MeasurementSourceRef,
     ModelRef,
     Outcome,
     QuotaSnapshot,
@@ -31,6 +32,60 @@ def _outcome(raw: Any) -> Outcome | None:
         return None
     known = Outcome.__dataclass_fields__
     return Outcome(**{k: v for k, v in raw.items() if k in known})
+
+
+_MEASUREMENT_STATES = frozenset({"complete", "partial", "unsupported", "failed", "unknown"})
+_IDENTITY_BASES = frozenset({"provider", "storage", "operator", "derived", "unknown"})
+
+
+def _measurement_source(raw: dict[str, Any]) -> MeasurementSourceRef | None:
+    nested = raw.get("measurement_source")
+    nested_map = nested if isinstance(nested, dict) else {}
+
+    def pick(name: str) -> Any:
+        value = nested_map.get(name)
+        if value is not None:
+            return value
+        return raw.get(name)
+
+    observer_id = pick("observer_id")
+    logical_source_id = pick("logical_source_id")
+    physical_source_id = pick("physical_source_id")
+    identity_basis = pick("identity_basis")
+    measurement_state = pick("measurement_state")
+    state_reason = pick("state_reason")
+
+    if identity_basis not in _IDENTITY_BASES:
+        identity_basis = None
+    if measurement_state not in _MEASUREMENT_STATES:
+        measurement_state = None
+
+    def text(value: Any, *, limit: int | None = None) -> str | None:
+        if value is None:
+            return None
+        out = str(value).strip()
+        if not out:
+            return None
+        return out[:limit] if limit is not None else out
+
+    source = MeasurementSourceRef(
+        observer_id=text(observer_id),
+        logical_source_id=text(logical_source_id),
+        physical_source_id=text(physical_source_id),
+        identity_basis=identity_basis,
+        measurement_state=measurement_state,
+        state_reason=text(state_reason, limit=500),
+    )
+    if all(value is None for value in (
+        source.observer_id,
+        source.logical_source_id,
+        source.physical_source_id,
+        source.identity_basis,
+        source.measurement_state,
+        source.state_reason,
+    )):
+        return None
+    return source
 
 
 def from_z0int_receipt(raw: dict[str, Any], *, harness: str = "z0int") -> TokenomicsEvent:
@@ -82,6 +137,7 @@ def from_z0int_receipt(raw: dict[str, Any], *, harness: str = "z0int") -> Tokeno
         role="router",
         status="ok" if raw.get("outcome_tier") != "negative" else "error",
         model=ModelRef(provider=raw.get("provider"), name=raw.get("model")),
+        measurement_source=_measurement_source({**extra, **raw}),
         usage=TokenUsage(
             input_tokens=raw.get("input_tokens"),
             output_tokens=raw.get("output_tokens"),
@@ -140,6 +196,7 @@ def from_kerdoios_observation(raw: dict[str, Any], *, harness: str = "kerdoios")
             origin_provider=raw.get("origin_provider"),
             name=raw.get("model"),
         ),
+        measurement_source=_measurement_source(raw),
         usage=TokenUsage(
             input_tokens=raw.get("input_tokens"),
             output_tokens=raw.get("output_tokens"),
@@ -457,6 +514,7 @@ def from_provider_usage(
         )
         if (raw.get("provider") or raw.get("model"))
         else None,
+        measurement_source=_measurement_source(raw),
         usage=TokenUsage(
             input_tokens=int(inp) if inp is not None else None,
             output_tokens=int(out) if out is not None else None,
