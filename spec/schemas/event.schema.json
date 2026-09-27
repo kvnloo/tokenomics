@@ -390,6 +390,18 @@
             "derived",
             "unknown"
           ]
+        },
+        "measurement_state": {
+          "enum": [
+            "complete",
+            "partial",
+            "unsupported",
+            "failed",
+            "unknown"
+          ]
+        },
+        "state_reason": {
+          "type": "string"
         }
       },
       "additionalProperties": false

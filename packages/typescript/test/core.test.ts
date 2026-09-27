@@ -50,6 +50,27 @@ test("trace aggregation does not double-count aggregate event", () => {
   assert.equal(summary.verified, true);
 });
 
+test("measurement state is independent from event execution status", () => {
+  const event = makeEvent({
+    kind: "quota",
+    name: "limits.read",
+    status: "ok",
+    usage: { reported_total_tokens: 42, attribution: "aggregate", source: "provider" },
+    measurement_source: {
+      logical_source_id: "account-a",
+      measurement_state: "partial",
+      state_reason: "sparse_runtime_update",
+    },
+  });
+  assert.equal(event.status, "ok");
+  assert.equal(event.measurement_source?.measurement_state, "partial");
+  assert.equal(toOtelAttributes(event)["tokenomics.measurement.state"], "partial");
+  assert.equal(
+    toOtelAttributes(event)["tokenomics.measurement.state_reason"],
+    "sparse_runtime_update",
+  );
+});
+
 test("physical measurement identity is explicit across observers", () => {
   const first = makeEvent({
     kind: "llm",
