@@ -1,0 +1,121 @@
+version: 1
+repo: kvnloo/tokenomics
+id: tokenomics
+component: tokenomics
+kind: component
+summary: Vendor-neutral measurement contracts and SDKs for agent usage, context economics, experiments, quota, latency, cost, and independently verified outcomes.
+
+architecture:
+  subsystems:
+    - id: measurement-contracts
+      name: Measurement contracts
+      kind: contract
+      summary: Defines canonical event, experiment, outcome, attribution, provenance, completeness, and verified-outcome semantics.
+      paths:
+        - spec/
+        - spec/schemas/event.schema.json
+        - spec/schemas/experiment.schema.json
+        - spec/schemas/outcome.schema.json
+      depends_on: []
+
+    - id: python-sdk
+      name: Python SDK
+      kind: sdk
+      summary: Emits, records, aggregates, reconciles, and reports Tokenomics events with dependency-light local JSONL as durable truth.
+      paths:
+        - packages/python/src/tokenomics/
+        - packages/python/tests/
+      depends_on: [measurement-contracts]
+
+    - id: typescript-sdk
+      name: TypeScript SDK
+      kind: sdk
+      summary: Implements the same event and experiment contracts for Node, Bun, and OMP-style integrations.
+      paths:
+        - packages/typescript/
+      depends_on: [measurement-contracts]
+
+    - id: harness-integrations
+      name: Harness integrations
+      kind: integration
+      summary: Normalizes provider-confirmed usage from Hermes, OMP, z0intelligence, and related runtimes without capturing prompt or tool payload content by default.
+      paths:
+        - packages/python/src/tokenomics/integrations/
+        - packages/python/src/tokenomics/hermes_plugin.py
+        - packages/python/src/tokenomics/adapters.py
+        - fixtures/z0int_receipt.json
+      depends_on: [python-sdk]
+
+    - id: trace-accounting
+      name: Trace accounting and reconciliation
+      kind: measurement
+      summary: Preserves incremental versus aggregate attribution, measurement completeness, verified-task economics, and trace-level deduplication.
+      paths:
+        - packages/python/src/tokenomics/aggregate.py
+        - packages/python/src/tokenomics/trace_accounting.py
+        - packages/python/src/tokenomics/report.py
+        - packages/python/src/tokenomics/coverage.py
+        - packages/python/src/tokenomics/gap_priority.py
+      depends_on: [measurement-contracts, python-sdk]
+
+    - id: experiment-contract
+      name: Experiment contract
+      kind: evidence
+      summary: Freezes treatment identity, task pairing, verifier semantics, and unknown measurements for falsifiable system comparisons.
+      paths:
+        - packages/python/src/tokenomics/experiment.py
+        - packages/typescript/src/experiment.ts
+        - docs/EXPERIMENTS.md
+      depends_on: [measurement-contracts]
+
+    - id: otel-transport
+      name: OpenTelemetry transport
+      kind: observability
+      summary: Projects Tokenomics semantics into replaceable OTLP infrastructure while keeping JSONL as durable offline truth.
+      paths:
+        - packages/python/src/tokenomics/otel.py
+        - collector/otel-collector.yaml
+        - docker-compose.yml
+      depends_on: [python-sdk]
+
+  implements_mechanisms: []
+
+  provides_interfaces:
+    - tokenomics.event.v0
+    - tokenomics.report.v1
+
+  consumes_interfaces:
+    - z0int.decision_receipt.v1
+
+  produces_representations:
+    - tokenomics-event
+
+  consumes_representations:
+    - decision-receipt
+    - observed-topology
+
+  boundaries:
+    owns:
+      - measurement semantics and schemas
+      - usage and context accounting
+      - verified-outcome economics
+      - experiment identity and treatment accounting
+      - completeness-aware aggregation and reconciliation
+    not_here:
+      - provider routing policy
+      - model or tool execution
+      - deciding unverified task quality
+      - prompt or completion capture by default
+      - architecture inference
+
+  evidence:
+    docs:
+      - README.md
+      - docs/EXPERIMENTS.md
+      - docs/MIGRATION.md
+      - docs/OMP_RLM.md
+    tests:
+      - packages/python/tests/
+      - packages/typescript/
+    schemas:
+      - spec/schemas/
