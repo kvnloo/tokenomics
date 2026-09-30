@@ -8,3 +8,4 @@ export * from "./aggregate.js";
 export * from "./adapters.js";
 export * from "./recorder.js";
 export * from "./jsonl.js";
+export * from "./traceAccounting.js";
