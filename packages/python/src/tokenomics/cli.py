@@ -11,6 +11,7 @@ from .jsonl import JsonlSink, iter_jsonl
 from .models import TokenomicsEvent
 from .otel import to_otel_attributes
 from .coverage import coverage_report_from_sources, format_coverage_text
+from .cost_displacement import build_cost_displacement_report
 from .report import (
     format_savings_text,
     load_events_from_paths,
@@ -90,9 +91,32 @@ def _cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_compare_costs(args: argparse.Namespace) -> int:
+    def unique_fields(pairs: list[tuple]) -> dict:
+        data = {}
+        for key, value in pairs:
+            if key in data:
+                raise ValueError(f"duplicate JSON field: {key}")
+            data[key] = value
+        return data
+
+    try:
+        raw = json.loads(Path(args.input).read_text(encoding="utf-8"), object_pairs_hook=unique_fields)
+        report = build_cost_displacement_report(raw)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        print(f"invalid paired cost study: {exc}", file=sys.stderr)
+        return 1
+    print(json.dumps(report, indent=2, sort_keys=True, allow_nan=False))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="tokenomics")
     sub = parser.add_subparsers(dest="cmd", required=True)
+
+    p = sub.add_parser("compare-costs", help="compare a paired cost study (explicit local JSON only)")
+    p.add_argument("input", help="tokenomics.paired_cost_study.v1 JSON file")
+    p.set_defaults(func=_cmd_compare_costs)
 
     p = sub.add_parser("validate", help="validate/read a tokenomics JSONL file")
     p.add_argument("path")
