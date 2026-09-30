@@ -8,6 +8,7 @@ from .trace_accounting import TraceFrontierRollup, rollup_trace, rollup_traces
 from .adapters import (
     from_flow_prepare,
     from_flow_prediction,
+    from_claude_code_provider_usage,
     from_hermes_provider_usage,
     from_kerdoios_observation,
     from_omp_provider_usage,
@@ -60,6 +61,7 @@ __all__ = [
     "rank_measurement_gaps",
     "rollup_trace",
     "rollup_traces",
+    "from_claude_code_provider_usage",
     "from_hermes_provider_usage",
     "from_omp_provider_usage",
     "append_event",

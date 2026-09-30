@@ -109,6 +109,14 @@ def from_z0int_receipt(raw: dict[str, Any], *, harness: str = "z0int") -> Tokeno
     baseline = None
     if raw.get("baseline_input_tokens") is not None or raw.get("baseline_output_tokens") is not None:
         baseline = int(raw.get("baseline_input_tokens") or 0) + int(raw.get("baseline_output_tokens") or 0)
+    # A baseline produced by a stated estimation method (e.g. z0int worker receipts'
+    # ceil_utf8_bytes_div_4_v1) is an estimate, not a paired measurement: keep it out of
+    # the measured tier even when the frontier side is measured.
+    baseline_meta = extra.get("baseline") if isinstance(extra.get("baseline"), dict) else {}
+    baseline_method = baseline_meta.get("method") if baseline_meta.get("kind") not in {"measured", "paired"} else None
+    estimated_baseline = baseline if baseline_method else None
+    if baseline_method:
+        baseline = None
     measured = raw.get("measured_frontier_tokens")
     measured_i = int(measured) if measured is not None else None
     # Never collapse tiers: measured requires paired baseline+actual.
@@ -157,6 +165,8 @@ def from_z0int_receipt(raw: dict[str, Any], *, harness: str = "z0int") -> Tokeno
         extra={
             "legacy_schema": raw.get("schema"),
             "baseline_total_tokens": baseline,
+            "estimated_baseline_total_tokens": estimated_baseline,
+            "baseline_method": baseline_method,
             "measured_frontier_tokens": measured_i,
             "route": route,
             "action_taken": raw.get("action_taken"),
@@ -589,3 +599,60 @@ def from_hermes_session_aggregate(raw: dict[str, Any]) -> TokenomicsEvent:
     ))
     return ev
 
+
+
+def from_claude_code_provider_usage(raw: dict[str, Any]) -> TokenomicsEvent:
+    """Legacy z0int Claude Code Stop-hook rows (``claude-code.provider_usage.v0``).
+
+    Anthropic reports prompt tokens in three disjoint counters. Canonical usage folds
+    them: ``input_tokens`` = uncached + cache reads + cache writes; cache reads become
+    ``cached_input_tokens`` and cache writes ``cache_write_input_tokens``. The raw counters
+    are preserved in ``extra.anthropic_usage``. These rows carry no timestamp; ``ts`` is
+    set to 0 with ``extra.ts_missing`` so ranged reports never place them in "now".
+    Newer z0int emits canonical ``tokenomics.event.v0`` directly.
+    """
+    usage = _usage_from_raw(raw)
+    keys = ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens", "output_tokens")
+    anthropic = {k: int(usage.get(k) or 0) for k in keys}
+    role = str(raw.get("role") or "root")
+    if role not in {"root", "rlm_worker", "subagent", "verifier", "router", "other"}:
+        role = "other"
+    trace = str(raw.get("trace_id") or "")
+    source_raw = dict(raw)
+    # The legacy physical_source_id was a transcript file name shared by many turns;
+    # it is a grouping key, not a per-charge identity.
+    file_name = source_raw.pop("physical_source_id", None)
+    if source_raw.get("identity_basis") not in _IDENTITY_BASES:
+        source_raw["identity_basis"] = "derived"
+    if file_name and not source_raw.get("logical_source_id"):
+        source_raw["logical_source_id"] = f"claude-code:{raw.get('session_id')}:{file_name}"
+    ts = raw.get("ts") or raw.get("timestamp")
+    return TokenomicsEvent(
+        kind="llm",
+        name="claude_code.turn",
+        capability_id="claude_code.turn",
+        trace_id=_trace_id(trace[:32] if len(trace) >= 32 else trace),
+        span_id=(trace[32:48] if len(trace) >= 48 and int(trace[32:48], 16) else new_span_id()),
+        session_id=raw.get("session_id"),
+        harness="claude-code",
+        role=role,  # type: ignore[arg-type]
+        status="ok",
+        model=ModelRef(provider=raw.get("provider") or "anthropic", name=raw.get("model")),
+        measurement_source=_measurement_source(source_raw),
+        usage=TokenUsage(
+            input_tokens=anthropic["input_tokens"] + anthropic["cache_read_input_tokens"]
+            + anthropic["cache_creation_input_tokens"],
+            output_tokens=anthropic["output_tokens"],
+            cached_input_tokens=anthropic["cache_read_input_tokens"],
+            cache_write_input_tokens=anthropic["cache_creation_input_tokens"],
+            attribution="aggregate" if raw.get("attribution") == "aggregate" else "incremental",
+            source="provider",
+        ),
+        ts=float(ts) if isinstance(ts, (int, float)) else 0.0,
+        extra={
+            "legacy_schema": raw.get("schema"),
+            "anthropic_usage": anthropic,
+            "message_count": raw.get("message_count"),
+            "ts_missing": not isinstance(ts, (int, float)) or None,
+        },
+    )

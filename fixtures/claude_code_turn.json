@@ -1,0 +1,56 @@
+{
+  "description": "Claude Code per-turn usage as emitted by z0int (canonical) and by the legacy z0int Stop hook. Synthetic counts; no transcript text.",
+  "canonical_event": {
+    "schema": "tokenomics.event.v0",
+    "kind": "llm",
+    "name": "claude_code.turn",
+    "capability_id": "claude_code.turn",
+    "trace_id": "5f0c1e2d3b4a59687766554433221100",
+    "span_id": "a1b2c3d4e5f60718",
+    "event_id": "cc-turn-0f1e2d3c4b5a69788796a5b4",
+    "session_id": "00000000-0000-4000-8000-000000000001",
+    "harness": "claude-code",
+    "role": "root",
+    "status": "ok",
+    "model": {"provider": "anthropic", "name": "claude-opus-5-5"},
+    "measurement_source": {
+      "observer_id": "z0int.claude_code.stop",
+      "logical_source_id": "claude-code:00000000-0000-4000-8000-000000000001",
+      "physical_source_id": "anthropic-messages:9a8b7c6d5e4f30211203f4e5d6c7b8a9",
+      "identity_basis": "provider",
+      "measurement_state": "complete"
+    },
+    "usage": {
+      "input_tokens": 2414,
+      "output_tokens": 66,
+      "cached_input_tokens": 2200,
+      "cache_write_input_tokens": 200,
+      "attribution": "incremental",
+      "source": "provider"
+    },
+    "ts": 1790000006.0,
+    "attributes": {"claude_code.api_requests": 3, "claude_code.harness_message": false},
+    "extra": {
+      "anthropic_usage": {"input_tokens": 14, "cache_creation_input_tokens": 200, "cache_read_input_tokens": 2200, "output_tokens": 66},
+      "usage_semantics": "anthropic_v1: input_tokens=uncached+cache_read+cache_write; cached_input_tokens=cache_read",
+      "mechanisms": {"lean_profile": true, "profile_basis": "launch_env", "packet_injected": true, "obspack_compactions": 1, "worker_offloads": 0}
+    }
+  },
+  "legacy_row": {
+    "schema": "claude-code.provider_usage.v0",
+    "harness": "claude-code",
+    "trace_id": "f571e4041c0af5c9765681c94f7fce888583fd5ce230cc6fe6e6db7c771c08fd",
+    "session_id": "00000000-0000-4000-8000-000000000001",
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "role": "subagent",
+    "attribution": "incremental",
+    "measurement_state": "complete",
+    "observer_id": "z0int.claude_code.stop",
+    "physical_source_id": "agent-a.jsonl",
+    "identity_basis": "transcript_message_id",
+    "message_count": 3,
+    "usage": {"input_tokens": 14, "cache_creation_input_tokens": 200, "cache_read_input_tokens": 2200, "output_tokens": 66}
+  },
+  "expected_legacy_usage": {"input_tokens": 2414, "output_tokens": 66, "cached_input_tokens": 2200, "cache_write_input_tokens": 200}
+}

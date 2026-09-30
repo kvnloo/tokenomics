@@ -13,6 +13,7 @@ from .adapters import (
     from_bespoke_curation,
     from_flow_prediction,
     from_flow_prepare,
+    from_claude_code_provider_usage,
     from_hermes_provider_usage,
     from_hermes_session_aggregate,
     from_kerdoios_observation,
@@ -294,6 +295,11 @@ def _coerce_event(raw: dict[str, Any]) -> TokenomicsEvent | None:
             if schema.endswith("session_usage.v0") or raw.get("attribution") == "aggregate":
                 return from_hermes_session_aggregate(raw)
             return from_hermes_provider_usage(raw)
+        except Exception:
+            return None
+    if schema == "claude-code.provider_usage.v0":
+        try:
+            return from_claude_code_provider_usage(raw)
         except Exception:
             return None
     if schema.startswith("bespoke.") or raw.get("intervention_kind"):
