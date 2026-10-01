@@ -1,0 +1,475 @@
+{
+  "schema": "tokenomics.paired_cost_study.v1",
+  "study_id": "synthetic-cost-displacement-example",
+  "baseline_arm": "baseline",
+  "treatment_arm": "offload",
+  "work_items": [
+    {
+      "work_item_id": "savings",
+      "task_snapshot_id": "savings-frozen-v1"
+    },
+    {
+      "work_item_id": "displacement",
+      "task_snapshot_id": "displacement-frozen-v1"
+    }
+  ],
+  "runs": [
+    {
+      "work_item_id": "savings",
+      "task_snapshot_id": "savings-frozen-v1",
+      "arm_id": "baseline",
+      "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "token_measurement_state": "complete",
+      "frontier_event_ids": [
+        "call-1"
+      ],
+      "events": [
+        {
+          "trace_id": "00000000000000000000000000000001",
+          "schema": "tokenomics.event.v0",
+          "ts": 1700000001,
+          "measurement_source": {
+            "measurement_state": "complete"
+          },
+          "kind": "llm",
+          "name": "model-call",
+          "event_id": "call-1",
+          "span_id": "000000000000000a",
+          "usage": {
+            "input_tokens": 1000,
+            "output_tokens": 0,
+            "source": "provider",
+            "attribution": "incremental"
+          }
+        },
+        {
+          "trace_id": "00000000000000000000000000000001",
+          "schema": "tokenomics.event.v0",
+          "ts": 1700000001,
+          "measurement_source": {
+            "measurement_state": "complete"
+          },
+          "kind": "task",
+          "name": "usage-reconciliation",
+          "event_id": "aggregate-1",
+          "span_id": "000000000000000b",
+          "usage": {
+            "input_tokens": 1000,
+            "output_tokens": 0,
+            "source": "provider",
+            "attribution": "aggregate"
+          }
+        },
+        {
+          "trace_id": "00000000000000000000000000000001",
+          "schema": "tokenomics.event.v0",
+          "ts": 1700000001,
+          "measurement_source": {
+            "measurement_state": "complete"
+          },
+          "kind": "verification",
+          "name": "fixture-verification",
+          "event_id": "verify-1",
+          "span_id": "000000000000000c",
+          "outcome": {
+            "verified_success": true,
+            "verification_source": "fixture-verifier-v1"
+          }
+        }
+      ],
+      "cost_observations": {
+        "frontier_calls": {
+          "value": 2,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/savings/baseline/frontier_calls"
+        },
+        "local_compute_ms": {
+          "value": 0,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/savings/baseline/local_compute_ms"
+        },
+        "wall_time_ms": {
+          "value": 1000,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/savings/baseline/wall_time_ms"
+        },
+        "tool_calls": {
+          "value": 1,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/savings/baseline/tool_calls"
+        },
+        "network_calls": {
+          "value": 1,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/savings/baseline/network_calls"
+        },
+        "retries": {
+          "value": 0,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/savings/baseline/retries"
+        },
+        "replans": {
+          "value": 0,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/savings/baseline/replans"
+        },
+        "human_interventions": {
+          "value": 0,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/savings/baseline/human_interventions"
+        }
+      }
+    },
+    {
+      "work_item_id": "savings",
+      "task_snapshot_id": "savings-frozen-v1",
+      "arm_id": "offload",
+      "revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "token_measurement_state": "complete",
+      "frontier_event_ids": [
+        "call-2"
+      ],
+      "events": [
+        {
+          "trace_id": "00000000000000000000000000000002",
+          "schema": "tokenomics.event.v0",
+          "ts": 1700000002,
+          "measurement_source": {
+            "measurement_state": "complete"
+          },
+          "kind": "llm",
+          "name": "model-call",
+          "event_id": "call-2",
+          "span_id": "0000000000000014",
+          "usage": {
+            "input_tokens": 400,
+            "output_tokens": 0,
+            "source": "provider",
+            "attribution": "incremental"
+          }
+        },
+        {
+          "trace_id": "00000000000000000000000000000002",
+          "schema": "tokenomics.event.v0",
+          "ts": 1700000002,
+          "measurement_source": {
+            "measurement_state": "complete"
+          },
+          "kind": "task",
+          "name": "usage-reconciliation",
+          "event_id": "aggregate-2",
+          "span_id": "0000000000000015",
+          "usage": {
+            "input_tokens": 400,
+            "output_tokens": 0,
+            "source": "provider",
+            "attribution": "aggregate"
+          }
+        },
+        {
+          "trace_id": "00000000000000000000000000000002",
+          "schema": "tokenomics.event.v0",
+          "ts": 1700000002,
+          "measurement_source": {
+            "measurement_state": "complete"
+          },
+          "kind": "verification",
+          "name": "fixture-verification",
+          "event_id": "verify-2",
+          "span_id": "0000000000000016",
+          "outcome": {
+            "verified_success": true,
+            "verification_source": "fixture-verifier-v1"
+          }
+        }
+      ],
+      "cost_observations": {
+        "frontier_calls": {
+          "value": 1,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/savings/offload/frontier_calls"
+        },
+        "local_compute_ms": {
+          "value": 0,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/savings/offload/local_compute_ms"
+        },
+        "wall_time_ms": {
+          "value": 800,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/savings/offload/wall_time_ms"
+        },
+        "tool_calls": {
+          "value": 1,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/savings/offload/tool_calls"
+        },
+        "network_calls": {
+          "value": 1,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/savings/offload/network_calls"
+        },
+        "retries": {
+          "value": 0,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/savings/offload/retries"
+        },
+        "replans": {
+          "value": 0,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/savings/offload/replans"
+        },
+        "human_interventions": {
+          "value": 0,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/savings/offload/human_interventions"
+        }
+      }
+    },
+    {
+      "work_item_id": "displacement",
+      "task_snapshot_id": "displacement-frozen-v1",
+      "arm_id": "baseline",
+      "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "token_measurement_state": "complete",
+      "frontier_event_ids": [
+        "call-3"
+      ],
+      "events": [
+        {
+          "trace_id": "00000000000000000000000000000003",
+          "schema": "tokenomics.event.v0",
+          "ts": 1700000003,
+          "measurement_source": {
+            "measurement_state": "complete"
+          },
+          "kind": "llm",
+          "name": "model-call",
+          "event_id": "call-3",
+          "span_id": "000000000000001e",
+          "usage": {
+            "input_tokens": 1000,
+            "output_tokens": 0,
+            "source": "provider",
+            "attribution": "incremental"
+          }
+        },
+        {
+          "trace_id": "00000000000000000000000000000003",
+          "schema": "tokenomics.event.v0",
+          "ts": 1700000003,
+          "measurement_source": {
+            "measurement_state": "complete"
+          },
+          "kind": "task",
+          "name": "usage-reconciliation",
+          "event_id": "aggregate-3",
+          "span_id": "000000000000001f",
+          "usage": {
+            "input_tokens": 1000,
+            "output_tokens": 0,
+            "source": "provider",
+            "attribution": "aggregate"
+          }
+        },
+        {
+          "trace_id": "00000000000000000000000000000003",
+          "schema": "tokenomics.event.v0",
+          "ts": 1700000003,
+          "measurement_source": {
+            "measurement_state": "complete"
+          },
+          "kind": "verification",
+          "name": "fixture-verification",
+          "event_id": "verify-3",
+          "span_id": "0000000000000020",
+          "outcome": {
+            "verified_success": true,
+            "verification_source": "fixture-verifier-v1"
+          }
+        }
+      ],
+      "cost_observations": {
+        "frontier_calls": {
+          "value": 2,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/displacement/baseline/frontier_calls"
+        },
+        "local_compute_ms": {
+          "value": 0,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/displacement/baseline/local_compute_ms"
+        },
+        "wall_time_ms": {
+          "value": 1000,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/displacement/baseline/wall_time_ms"
+        },
+        "tool_calls": {
+          "value": 1,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/displacement/baseline/tool_calls"
+        },
+        "network_calls": {
+          "value": 1,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/displacement/baseline/network_calls"
+        },
+        "retries": {
+          "value": 0,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/displacement/baseline/retries"
+        },
+        "replans": {
+          "value": 0,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/displacement/baseline/replans"
+        },
+        "human_interventions": {
+          "value": 0,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/displacement/baseline/human_interventions"
+        }
+      }
+    },
+    {
+      "work_item_id": "displacement",
+      "task_snapshot_id": "displacement-frozen-v1",
+      "arm_id": "offload",
+      "revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "token_measurement_state": "complete",
+      "frontier_event_ids": [
+        "call-4"
+      ],
+      "events": [
+        {
+          "trace_id": "00000000000000000000000000000004",
+          "schema": "tokenomics.event.v0",
+          "ts": 1700000004,
+          "measurement_source": {
+            "measurement_state": "complete"
+          },
+          "kind": "llm",
+          "name": "model-call",
+          "event_id": "call-4",
+          "span_id": "0000000000000028",
+          "usage": {
+            "input_tokens": 400,
+            "output_tokens": 0,
+            "source": "provider",
+            "attribution": "incremental"
+          }
+        },
+        {
+          "trace_id": "00000000000000000000000000000004",
+          "schema": "tokenomics.event.v0",
+          "ts": 1700000004,
+          "measurement_source": {
+            "measurement_state": "complete"
+          },
+          "kind": "task",
+          "name": "usage-reconciliation",
+          "event_id": "aggregate-4",
+          "span_id": "0000000000000029",
+          "usage": {
+            "input_tokens": 400,
+            "output_tokens": 0,
+            "source": "provider",
+            "attribution": "aggregate"
+          }
+        },
+        {
+          "trace_id": "00000000000000000000000000000004",
+          "schema": "tokenomics.event.v0",
+          "ts": 1700000004,
+          "measurement_source": {
+            "measurement_state": "complete"
+          },
+          "kind": "verification",
+          "name": "fixture-verification",
+          "event_id": "verify-4",
+          "span_id": "000000000000002a",
+          "outcome": {
+            "verified_success": true,
+            "verification_source": "fixture-verifier-v1"
+          }
+        }
+      ],
+      "cost_observations": {
+        "frontier_calls": {
+          "value": 1,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/displacement/offload/frontier_calls"
+        },
+        "local_compute_ms": {
+          "value": 600,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/displacement/offload/local_compute_ms"
+        },
+        "wall_time_ms": {
+          "value": 1800,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/displacement/offload/wall_time_ms"
+        },
+        "tool_calls": {
+          "value": 1,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/displacement/offload/tool_calls"
+        },
+        "network_calls": {
+          "value": 1,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/displacement/offload/network_calls"
+        },
+        "retries": {
+          "value": 1,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/displacement/offload/retries"
+        },
+        "replans": {
+          "value": 0,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/displacement/offload/replans"
+        },
+        "human_interventions": {
+          "value": 1,
+          "measurement_state": "complete",
+          "attribution": "trace_total",
+          "evidence_ref": "synthetic:example/displacement/offload/human_interventions"
+        }
+      }
+    }
+  ],
+  "evidence_origin": "synthetic"
+}
