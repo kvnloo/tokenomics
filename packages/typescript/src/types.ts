@@ -2,7 +2,7 @@ export const TOKENOMICS_SCHEMA = "tokenomics.event.v0" as const;
 
 export type EventKind =
   | "task" | "decision" | "llm" | "tool" | "retrieval" | "context"
-  | "verification" | "quota" | "placement" | "other";
+  | "verification" | "quota" | "placement" | "prepare" | "other";
 export type EventStatus = "ok" | "error" | "cancelled" | "unknown";
 export type ExecutionRole = "root" | "rlm_worker" | "subagent" | "verifier" | "router" | "other";
 export type UsageAttribution = "incremental" | "aggregate" | "unknown";
@@ -55,6 +55,14 @@ export interface Economics {
   cache_write_price_usd_per_million?: number;
   estimated_tokens_avoided?: number;
   measured_tokens_avoided?: number;
+  prepare_outcome?: "prepare_created" | "consumed" | "expired" | "invalidated" | string;
+  prepare_cost_ms?: number;
+  prepare_bytes?: number;
+  prepare_provider?: string;
+  time_to_commit_ms?: number;
+  latency_hidden_ms?: number;
+  manual_equivalent?: boolean;
+  frontier_tokens_replaced?: number;
 }
 
 export interface Latency {
@@ -96,6 +104,18 @@ export interface Experiment {
   reason_for_reference?: string;
   replay_grade?: string;
   verifier_class?: string;
+  parent_example_id?: string;
+  contrast_group_id?: string;
+  source_family_id?: string;
+  intervention_kind?: string;
+  supervision_kind?: string;
+  acceptance_status?: string;
+  rejection_stage?: string;
+  gate_revision?: string;
+  reuse_kind?: string;
+  original_event_ref?: string;
+  evaluation_cohort?: string;
+  production_credit_eligible?: boolean;
 }
 
 export interface Outcome {

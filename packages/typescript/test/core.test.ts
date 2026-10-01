@@ -7,6 +7,8 @@ import {
   normalizeOutcome,
   outcomeTier,
   summarizeTrace,
+  rollupTrace,
+  assertNoDoubleCount,
   toOtelAttributes,
   treatmentHash,
 } from "../src/index.js";
@@ -173,4 +175,88 @@ test("legacy adapters preserve key semantics", () => {
   const k = fromKerdoiosObservation({ trace_id: "f".repeat(32), provider: "groq", model: "m", task_type: "coding", completed: true, actual_cost: 0, quota_before: 100, quota_after: 90 });
   assert.equal(k.quota_before?.remaining, 100);
   assert.equal(k.quota_after?.remaining, 90);
+});
+
+test("frontier rollup separates aggregate reconciliation from incremental usage", () => {
+  const trace = "a".repeat(32);
+  const root = makeEvent({
+    kind: "llm",
+    name: "root",
+    trace_id: trace,
+    harness: "omp",
+    role: "root",
+    usage: { input_tokens: 80, output_tokens: 20, attribution: "incremental", source: "provider" },
+    measurement_source: { measurement_state: "complete" },
+    extra: { baseline_total_tokens: 160, measured_frontier_tokens: 100, route: "frontier" },
+  });
+  const session = makeEvent({
+    kind: "task",
+    name: "session",
+    trace_id: trace,
+    usage: { reported_total_tokens: 100, attribution: "aggregate", source: "provider" },
+    measurement_source: { measurement_state: "complete" },
+  });
+  const verified = makeEvent({
+    kind: "verification",
+    name: "tests",
+    trace_id: trace,
+    outcome: { verified_success: true, verification_source: "tests" },
+  });
+
+  const rollup = rollupTrace([root, session, verified]);
+  assert.equal(rollup.actual_frontier_tokens, 100);
+  assert.equal(rollup.aggregate_reported, 100);
+  assert.equal(rollup.reconciliation_delta, 0);
+  assert.equal(rollup.tokens_avoided, 60);
+  assert.equal(rollup.savings_tier, "measured");
+  assert.equal(rollup.measurement_level, "M3");
+  assert.equal(rollup.authoritative, true);
+  assert.equal(rollup.verified, true);
+  assert.ok(rollup.attribution.includes("omp"));
+});
+
+test("prepare events never mint frontier savings", () => {
+  const trace = "b".repeat(32);
+  const prepared = makeEvent({
+    kind: "prepare",
+    name: "flow.prepare",
+    trace_id: trace,
+    economics: {
+      prepare_outcome: "prepare_created",
+      estimated_tokens_avoided: 500,
+    },
+  });
+  const root = makeEvent({
+    kind: "llm",
+    name: "root",
+    trace_id: trace,
+    usage: { input_tokens: 10, output_tokens: 5, attribution: "incremental", source: "provider" },
+  });
+  const rollup = rollupTrace([prepared, root]);
+  assert.equal(rollup.actual_frontier_tokens, 15);
+  assert.equal(rollup.tokens_avoided, 0);
+  assert.equal(rollup.event_count, 1);
+});
+
+test("double-count guard rejects incremental sums above provider aggregate", () => {
+  const trace = "c".repeat(32);
+  const first = makeEvent({
+    kind: "llm",
+    name: "root",
+    trace_id: trace,
+    usage: { reported_total_tokens: 80, attribution: "incremental", source: "provider" },
+  });
+  const second = makeEvent({
+    kind: "llm",
+    name: "child",
+    trace_id: trace,
+    usage: { reported_total_tokens: 40, attribution: "incremental", source: "provider" },
+  });
+  const aggregate = makeEvent({
+    kind: "task",
+    name: "provider-total",
+    trace_id: trace,
+    usage: { reported_total_tokens: 100, attribution: "aggregate", source: "provider" },
+  });
+  assert.throws(() => assertNoDoubleCount([first, second, aggregate]), /aggregate reported/);
 });
