@@ -88,7 +88,7 @@ def _run(raw: dict, snapshots: dict[str, str], arms: tuple[str, str], study_id: 
             _identity(event.get(key))
         _number(event.get('ts'), 'timestamp_ms')
     events = [TokenomicsEvent.from_dict(e) for e in raw['events']]
-    if not events or len({e.trace_id for e in events}) != 1:
+    if not events or len({e.trace_id.lower() for e in events}) != 1:
         raise ValueError('one nonempty canonical trace is required per run')
     by_id = {e.event_id: e for e in events}
     if len(by_id) != len(events):
@@ -200,7 +200,7 @@ def build_cost_displacement_report(study: dict) -> dict:
     if len(set(event_ids)) != len(event_ids):
         raise ValueError('event_id must not be reused across study runs')
     indexed = {(r['work_item_id'], r['arm_id']): r for r in rows}
-    if len(indexed) != len(rows) or len({r['trace_id'] for r in rows}) != len(rows):
+    if len(indexed) != len(rows) or len({r['trace_id'].lower() for r in rows}) != len(rows):
         raise ValueError('duplicate run or reused trace in the study')
     pairs = []
     for item in snapshots:

@@ -60,7 +60,9 @@ as `observed_value` but is not an authoritative `value`.
 Trace scope is declared by the producer, not independently proven by this
 report. Canonical usage must correctly mark aggregate vs incremental events.
 Do not duplicate a physical charge under new event IDs or supply an estimated
-counter as measured. Event and trace IDs cannot be reused within a study.
+counter as measured. Event and trace IDs cannot be reused within a study. Hexadecimal trace IDs are
+compared case-insensitively; their original spelling remains in the output
+provenance.
 
 Outcome classification uses Tokenomics' existing negative-dominates rule. A run
 enters the verified-success denominator only with a gold outcome and an explicit

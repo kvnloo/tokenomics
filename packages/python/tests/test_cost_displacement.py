@@ -279,3 +279,39 @@ def test_tied_latest_aggregate_conflicts_are_order_independent():
         assert metric['aggregate_conflict'] is True
         assert metric['aggregate_reported'] is None
         assert metric['value'] is None
+
+
+@pytest.mark.parametrize('run_index', [1, 2, 3])
+@pytest.mark.parametrize('spelling', ['lower', 'upper', 'mixed'])
+def test_trace_identity_reuse_is_case_insensitive_across_runs(run_index, spelling):
+    data = study()
+    trace_id = 'abcdef0123456789abcdef0123456789'
+    alias = {'lower': trace_id, 'upper': trace_id.upper(),
+             'mixed': trace_id[:16].upper() + trace_id[16:]}[spelling]
+    for event in data['runs'][0]['events']:
+        event['trace_id'] = trace_id
+    for event in data['runs'][run_index]['events']:
+        event['trace_id'] = alias
+    with pytest.raises(ValueError, match='reused trace'):
+        build_cost_displacement_report(data)
+
+
+def test_one_trace_accepts_mixed_hex_case_and_preserves_provenance():
+    data = study()
+    trace_id = 'abcdef0123456789abcdef0123456789'
+    for index, event in enumerate(data['runs'][0]['events']):
+        event['trace_id'] = trace_id.upper() if index == 0 else trace_id
+    original = deepcopy(data)
+    report = build_cost_displacement_report(data)
+    assert report['runs'][0]['trace_id'] == trace_id.upper()
+    assert report['pairs'][0]['finding'] == 'vector_improvement'
+    assert data == original
+
+
+def test_distinct_trace_ids_remain_distinct_after_case_normalization():
+    data = study()
+    for event in data['runs'][0]['events']:
+        event['trace_id'] = 'abcdef0123456789abcdef0123456789'
+    for event in data['runs'][1]['events']:
+        event['trace_id'] = 'ABCDEF0123456789ABCDEF012345678A'
+    assert build_cost_displacement_report(data)['pairs'][0]['finding'] == 'vector_improvement'
