@@ -23,13 +23,32 @@ def _read_json(path: str) -> dict:
 
 
 def _cmd_validate(args: argparse.Namespace) -> int:
+    # Validation must inspect the original rows: tolerant ingestion intentionally
+    # skips invalid records and cannot establish that the input file is valid.
+    def reject_constant(value: str) -> None:
+        raise ValueError(f"non-JSON numeric constant: {value}")
+
+    target = Path(args.path).expanduser()
     bad = 0
-    for idx, event in enumerate(iter_jsonl(args.path, strict=False), 1):
-        try:
-            TokenomicsEvent.from_dict(event.to_dict())
-        except ValueError as exc:
-            bad += 1
-            print(f"{idx}: {exc}", file=sys.stderr)
+    try:
+        if not target.is_file():
+            raise OSError("not a regular JSONL file")
+        with target.open(encoding="utf-8") as source:
+            for lineno, line in enumerate(source, 1):
+                if not line.strip():
+                    continue
+                try:
+                    raw = json.loads(line, parse_constant=reject_constant)
+                    if not isinstance(raw, dict):
+                        raise ValueError("expected a JSON event object")
+                    event = TokenomicsEvent.from_dict(raw)
+                    TokenomicsEvent.from_dict(event.to_dict())
+                except (ValueError, TypeError, AttributeError) as exc:
+                    bad += 1
+                    print(f"{target}:{lineno}: {exc}", file=sys.stderr)
+    except (OSError, UnicodeError) as exc:
+        print(f"{target}: {exc}", file=sys.stderr)
+        return 1
     if bad:
         return 1
     print("ok")

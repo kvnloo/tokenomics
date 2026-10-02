@@ -126,6 +126,13 @@ recorder.record(TokenomicsEvent(
 tokenomics summary ~/.local/share/tokenomics/events.jsonl
 ```
 
+Validate a local JSONL file with `tokenomics validate path/to/events.jsonl`.
+The command checks every nonblank row against the event model, reports invalid
+rows with physical line numbers, and exits nonzero for invalid input or unreadable
+files. Empty and blank-only files are valid empty streams; `ok` confirms input
+validation, not trace completeness or verified task success. Other ingestion
+commands retain their existing tolerant row-skipping behavior.
+
 ## Quick start: TypeScript
 
 ```ts
